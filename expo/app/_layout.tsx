@@ -5,7 +5,8 @@ import React, { useEffect, useState, Component, ErrorInfo, ReactNode } from "rea
 import { StyleSheet, Platform, View, Text, TouchableOpacity } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { TripProvider } from "@/providers/TripProvider";
+import { TripProvider, useTrips } from "@/providers/TripProvider";
+import { useAchievements } from "@/providers/AchievementProvider";
 import { AnalyticsProvider, useAnalytics } from "@/providers/AnalyticsProvider";
 import { AchievementProvider } from "@/providers/AchievementProvider";
 import { SettingsProvider } from "@/providers/SettingsProvider";
@@ -253,6 +254,32 @@ function PushTokenSync() {
   return null;
 }
 
+function AchievementSync() {
+  const { lastSavedTrip, trips } = useTrips();
+  const { checkTripAchievements } = useAchievements();
+  const { user } = useUser();
+  const lastCheckedTripIdRef = React.useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!lastSavedTrip) return;
+    if (lastCheckedTripIdRef.current === lastSavedTrip.id) return;
+    lastCheckedTripIdRef.current = lastSavedTrip.id;
+
+    console.log('[ACHIEVEMENT_SYNC] New trip completed, checking achievements for trip:', lastSavedTrip.id);
+    checkTripAchievements(lastSavedTrip, trips, user?.id).then((unlocked) => {
+      if (unlocked.length > 0) {
+        console.log('[ACHIEVEMENT_SYNC] Unlocked achievements:', unlocked);
+      } else {
+        console.log('[ACHIEVEMENT_SYNC] No new achievements unlocked');
+      }
+    }).catch((err) => {
+      console.error('[ACHIEVEMENT_SYNC] Failed to check achievements:', err);
+    });
+  }, [lastSavedTrip, trips, user?.id, checkTripAchievements]);
+
+  return null;
+}
+
 function LocationSync() {
   const { user } = useUser();
   const syncedRef = React.useRef(false);
@@ -399,6 +426,7 @@ export default function RootLayout() {
                 <LocationSync />
                 <AchievementProvider>
                 <TripProvider>
+                  <AchievementSync />
                   <SafeAreaProvider>
                     <GestureHandlerRootView style={styles.container}>
                       <RootLayoutNav />
