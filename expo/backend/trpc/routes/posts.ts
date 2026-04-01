@@ -177,40 +177,42 @@ export const postsRouter = createTRPCRouter({
     )
     .mutation(async ({ input }) => {
       console.log("[POSTS] Creating post for user:", input.userId);
-      if (!isDbConfigured()) return { success: false, error: "Database not configured" };
+      console.log("[POSTS] Input text:", input.text, "imageUrl:", input.imageUrl);
+      
+      if (!isDbConfigured()) {
+        console.error("[POSTS] DB not configured");
+        throw new Error("Database not configured");
+      }
 
       if (!input.text?.trim() && !input.imageUrl) {
-        return { success: false, error: "Post must have text or an image" };
+        throw new Error("Post must have text or an image");
       }
 
-      try {
-        const id = `post_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        const row = {
-          id,
-          user_id: input.userId,
-          text: input.text?.trim() || null,
-          image_url: input.imageUrl || null,
-          created_at: Date.now(),
-        };
+      const id = `post_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const row = {
+        id,
+        user_id: input.userId,
+        text: input.text?.trim() || null,
+        image_url: input.imageUrl || null,
+        created_at: Date.now(),
+      };
 
-        const resp = await fetch(getSupabaseRestUrl("posts"), {
-          method: "POST",
-          headers: getSupabaseHeaders(),
-          body: JSON.stringify(row),
-        });
+      console.log("[POSTS] Inserting post row:", JSON.stringify(row));
 
-        if (!resp.ok) {
-          const err = await resp.text();
-          console.error("[POSTS] Post insert failed:", err);
-          return { success: false, error: "Failed to create post" };
-        }
+      const resp = await fetch(getSupabaseRestUrl("posts"), {
+        method: "POST",
+        headers: getSupabaseHeaders(),
+        body: JSON.stringify(row),
+      });
 
-        console.log("[POSTS] Post created:", id);
-        return { success: true, postId: id };
-      } catch (error) {
-        console.error("[POSTS] Create post error:", error);
-        return { success: false, error: "Network error" };
+      if (!resp.ok) {
+        const err = await resp.text();
+        console.error("[POSTS] Post insert failed:", resp.status, err);
+        throw new Error(`Failed to create post: ${err}`);
       }
+
+      console.log("[POSTS] Post created:", id);
+      return { success: true, postId: id };
     }),
 
   getFeedPosts: publicProcedure

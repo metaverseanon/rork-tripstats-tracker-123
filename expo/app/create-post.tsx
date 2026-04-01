@@ -35,16 +35,22 @@ export default function CreatePostScreen() {
   const utils = trpc.useUtils();
 
   const createPostMutation = trpc.posts.createPost.useMutation({
-    onSuccess: () => {
-      console.log('[CREATE_POST] Post created successfully');
-      void utils.posts.getFeedPosts.invalidate();
-      void utils.posts.getUserPosts.invalidate();
-      if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      router.back();
+    onSuccess: (data) => {
+      console.log('[CREATE_POST] Post created successfully, data:', JSON.stringify(data));
+      if (data?.success) {
+        void utils.posts.getFeedPosts.invalidate();
+        void utils.posts.getUserPosts.invalidate();
+        if (Platform.OS !== 'web') void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        router.back();
+      } else {
+        console.error('[CREATE_POST] Post creation returned unsuccessful');
+        Alert.alert('Error', 'Failed to create post. Please try again.');
+        setIsSubmitting(false);
+      }
     },
     onError: (error) => {
-      console.error('[CREATE_POST] Error:', error);
-      Alert.alert('Error', 'Failed to create post. Please try again.');
+      console.error('[CREATE_POST] Mutation error:', error.message, error);
+      Alert.alert('Error', error.message || 'Failed to create post. Please try again.');
       setIsSubmitting(false);
     },
   });
