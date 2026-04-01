@@ -3,12 +3,12 @@ import { Platform } from 'react-native';
 const BUCKET_NAME = 'user-images';
 
 function getSupabaseUrl(): string {
-  const url = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
+  const url = process.env.EXPO_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
   return url;
 }
 
 function getSupabaseAnonKey(): string {
-  const key = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
+  const key = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
   return key;
 }
 
