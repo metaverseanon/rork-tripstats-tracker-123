@@ -586,7 +586,7 @@ export const socialRouter = createTRPCRouter({
         const allUsers: { id: string; display_name: string; profile_picture?: string }[] = usersResp.ok ? await usersResp.json() : [];
 
         const userMap = new Map(allUsers.map(u => [u.id, u]));
-        const totalAchievements = 22;
+        const totalAchievements = 23;
 
         return sorted.map(([userId, count]) => {
           const u = userMap.get(userId);

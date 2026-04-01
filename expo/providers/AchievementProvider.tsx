@@ -9,6 +9,7 @@ import { getEarnedBadges, getHighestBadge, getNextBadge } from '@/constants/badg
 import { UserAchievement, AchievementProgress } from '@/types/achievement';
 import { TripStats } from '@/types/trip';
 import { trpcClient } from '@/lib/trpc';
+import { useUser } from '@/providers/UserProvider';
 
 const ACHIEVEMENTS_KEY = 'user_achievements';
 const STREAK_KEY = 'driving_streak';
@@ -30,6 +31,8 @@ export const [AchievementProvider, useAchievements] = createContextHook(() => {
   const [newlyUnlocked, setNewlyUnlocked] = useState<string[]>([]);
   const [pendingCongrats, setPendingCongrats] = useState<string | null>(null);
   const unlockedRef = useRef<UserAchievement[]>([]);
+  const { user } = useUser();
+  const backendSyncDone = useRef(false);
 
   useEffect(() => {
     void loadAchievements();
@@ -39,6 +42,49 @@ export const [AchievementProvider, useAchievements] = createContextHook(() => {
   useEffect(() => {
     unlockedRef.current = unlockedAchievements;
   }, [unlockedAchievements]);
+
+  useEffect(() => {
+    if (!user?.id || backendSyncDone.current) return;
+    backendSyncDone.current = true;
+    void fetchAndMergeFromBackend(user.id);
+  }, [user?.id]);
+
+  const fetchAndMergeFromBackend = async (userId: string) => {
+    try {
+      console.log('[ACHIEVEMENTS] Fetching from backend for user:', userId);
+      const remote = await trpcClient.social.getUserAchievements.query({ userId });
+      if (!remote || remote.length === 0) {
+        console.log('[ACHIEVEMENTS] No remote achievements found');
+        return;
+      }
+      console.log('[ACHIEVEMENTS] Remote achievements count:', remote.length);
+
+      const local = unlockedRef.current;
+      const localMap = new Map(local.map(a => [a.achievementId, a]));
+
+      let changed = false;
+      for (const r of remote) {
+        if (!localMap.has(r.achievementId)) {
+          localMap.set(r.achievementId, {
+            achievementId: r.achievementId,
+            unlockedAt: r.unlockedAt,
+            progress: 0,
+          });
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        const merged = Array.from(localMap.values());
+        console.log('[ACHIEVEMENTS] Merged local+remote, total:', merged.length);
+        await saveAchievements(merged);
+      } else {
+        console.log('[ACHIEVEMENTS] Local already up to date');
+      }
+    } catch (error) {
+      console.error('[ACHIEVEMENTS] Failed to fetch from backend:', error);
+    }
+  };
 
   const loadAchievements = async () => {
     try {
