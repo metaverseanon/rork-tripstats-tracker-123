@@ -17,7 +17,7 @@ function isRemoteUrl(uri: string): boolean {
 }
 
 function isLocalFileUri(uri: string): boolean {
-  return uri.startsWith('file://') || uri.startsWith('content://') || uri.startsWith('ph://');
+  return uri.startsWith('file://') || uri.startsWith('content://') || uri.startsWith('ph://') || uri.startsWith('blob:') || uri.startsWith('data:');
 }
 
 export async function uploadImage(

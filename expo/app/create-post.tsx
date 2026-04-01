@@ -18,8 +18,8 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import { useSettings } from '@/providers/SettingsProvider';
 import { useUser } from '@/providers/UserProvider';
-import { trpc, trpcClient } from '@/lib/trpc';
-import * as FileSystem from 'expo-file-system';
+import { trpc } from '@/lib/trpc';
+import { uploadPostImage } from '@/lib/imageUpload';
 import { ThemeColors } from '@/constants/colors';
 
 export default function CreatePostScreen() {
@@ -86,49 +86,19 @@ export default function CreatePostScreen() {
     try {
       let uploadedImageUrl: string | undefined;
       if (imageUri) {
-        console.log('[CREATE_POST] Uploading image via backend...');
+        console.log('[CREATE_POST] Uploading image directly...');
         console.log('[CREATE_POST] Image URI:', imageUri.substring(0, 80));
-        console.log('[CREATE_POST] Platform:', Platform.OS);
 
         const postId = Date.now().toString();
 
         try {
-          let base64Data: string;
-
-          if (Platform.OS === 'web') {
-            const response = await fetch(imageUri);
-            const blob = await response.blob();
-            base64Data = await new Promise<string>((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onloadend = () => {
-                const result = reader.result as string;
-                const base64 = result.split(',')[1] || result;
-                resolve(base64);
-              };
-              reader.onerror = reject;
-              reader.readAsDataURL(blob);
-            });
+          const url = await uploadPostImage(imageUri, user.id, postId);
+          if (url) {
+            uploadedImageUrl = url;
+            console.log('[CREATE_POST] Image uploaded:', url.substring(0, 80));
           } else {
-            base64Data = await FileSystem.readAsStringAsync(imageUri, {
-              encoding: 'base64',
-            });
-          }
-
-          console.log('[CREATE_POST] Base64 length:', base64Data.length);
-
-          const uploadResult = await trpcClient.posts.uploadPostImage.mutate({
-            userId: user.id,
-            postId,
-            base64: base64Data,
-            mimeType: 'image/jpeg',
-          });
-
-          if (uploadResult.success && uploadResult.url) {
-            uploadedImageUrl = uploadResult.url;
-            console.log('[CREATE_POST] Image uploaded via backend:', uploadResult.url.substring(0, 80));
-          } else {
-            console.error('[CREATE_POST] Backend upload failed:', uploadResult.error);
-            Alert.alert('Upload Failed', uploadResult.error || 'Could not upload image. Try again.');
+            console.error('[CREATE_POST] Direct upload returned null');
+            Alert.alert('Upload Failed', 'Could not upload image. Try again.');
             setIsSubmitting(false);
             return;
           }
