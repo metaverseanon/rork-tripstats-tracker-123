@@ -2,8 +2,11 @@ import { Platform } from 'react-native';
 
 const BUCKET_NAME = 'user-images';
 
-const SUPABASE_URL_CONST = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
-const SUPABASE_ANON_KEY_CONST = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
+const HARDCODED_SUPABASE_URL = 'https://zlyqrrmiegtxlpifwxxv.supabase.co';
+const HARDCODED_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpseXFycm1pZWd0eGxwaWZ3eHh2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyMDkzODcsImV4cCI6MjA4NTc4NTM4N30.mbtqib3AQzhRnUT2Db9X9d5Btw7-hpNhRW7cF9Ev_QE';
+
+const SUPABASE_URL_CONST = process.env.EXPO_PUBLIC_SUPABASE_URL || HARDCODED_SUPABASE_URL;
+const SUPABASE_ANON_KEY_CONST = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || HARDCODED_SUPABASE_ANON_KEY;
 
 console.log('[SUPABASE_CONFIG] URL set:', !!SUPABASE_URL_CONST, 'length:', SUPABASE_URL_CONST.length);
 console.log('[SUPABASE_CONFIG] KEY set:', !!SUPABASE_ANON_KEY_CONST, 'length:', SUPABASE_ANON_KEY_CONST.length);
