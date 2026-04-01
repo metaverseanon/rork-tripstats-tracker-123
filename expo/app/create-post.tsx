@@ -19,7 +19,7 @@ import * as Haptics from 'expo-haptics';
 import { useSettings } from '@/providers/SettingsProvider';
 import { useUser } from '@/providers/UserProvider';
 import { trpc } from '@/lib/trpc';
-import * as FileSystem from 'expo-file-system';
+import { uploadPostImage } from '@/lib/imageUpload';
 import { ThemeColors } from '@/constants/colors';
 
 export default function CreatePostScreen() {
@@ -33,8 +33,6 @@ export default function CreatePostScreen() {
 
   const styles = useMemo(() => createStyles(colors), [colors]);
   const utils = trpc.useUtils();
-
-  const uploadImageMutation = trpc.posts.uploadPostImage.useMutation();
 
   const createPostMutation = trpc.posts.createPost.useMutation({
     onSuccess: (data) => {
@@ -94,46 +92,19 @@ export default function CreatePostScreen() {
     try {
       let uploadedImageUrl: string | undefined;
       if (imageUri) {
-        console.log('[CREATE_POST] Uploading image via backend...');
+        console.log('[CREATE_POST] Uploading image directly to storage...');
         console.log('[CREATE_POST] Image URI:', imageUri.substring(0, 80));
 
         const postId = Date.now().toString();
 
         try {
-          let base64Data: string;
-          if (Platform.OS === 'web') {
-            const response = await fetch(imageUri);
-            const blob = await response.blob();
-            base64Data = await new Promise<string>((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onloadend = () => {
-                const result = reader.result as string;
-                const base64 = result.split(',')[1] || result;
-                resolve(base64);
-              };
-              reader.onerror = reject;
-              reader.readAsDataURL(blob);
-            });
+          const url = await uploadPostImage(imageUri, user.id, postId);
+          if (url) {
+            uploadedImageUrl = url;
+            console.log('[CREATE_POST] Image uploaded:', url.substring(0, 80));
           } else {
-            base64Data = await FileSystem.readAsStringAsync(imageUri, {
-              encoding: 'base64' as any,
-            });
-          }
-
-          console.log('[CREATE_POST] Base64 length:', base64Data.length);
-          const result = await uploadImageMutation.mutateAsync({
-            userId: user.id,
-            postId,
-            base64: base64Data,
-            mimeType: 'image/jpeg',
-          });
-
-          if (result.success && result.url) {
-            uploadedImageUrl = result.url;
-            console.log('[CREATE_POST] Image uploaded:', result.url.substring(0, 80));
-          } else {
-            console.error('[CREATE_POST] Backend upload failed:', result.error);
-            Alert.alert('Upload Failed', result.error || 'Could not upload image. Try again.');
+            console.error('[CREATE_POST] Direct upload returned null');
+            Alert.alert('Upload Failed', 'Could not upload image. Please try again.');
             setIsSubmitting(false);
             return;
           }
@@ -155,7 +126,7 @@ export default function CreatePostScreen() {
       Alert.alert('Error', 'Something went wrong. Please try again.');
       setIsSubmitting(false);
     }
-  }, [user?.id, text, imageUri, createPostMutation, uploadImageMutation]);
+  }, [user?.id, text, imageUri, createPostMutation]);
 
   const canSubmit = (text.trim().length > 0 || !!imageUri) && !isSubmitting;
 
