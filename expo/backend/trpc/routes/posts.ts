@@ -552,6 +552,94 @@ export const postsRouter = createTRPCRouter({
       }
     }),
 
+  getDiscoverPosts: publicProcedure
+    .input(
+      z.object({
+        userId: z.string(),
+        limit: z.number().optional().default(20),
+      })
+    )
+    .query(async ({ input }) => {
+      console.log("[POSTS] Fetching discover posts for user:", input.userId);
+      if (!isDbConfigured()) return [];
+
+      try {
+        const followingUrl = `${getSupabaseRestUrl("follows")}?follower_id=eq.${encodeURIComponent(input.userId)}&select=following_id`;
+        const followResp = await fetch(followingUrl, { method: "GET", headers: getSupabaseHeaders() });
+        const followRows: { following_id: string }[] = followResp.ok ? await followResp.json() : [];
+        const followingIds = new Set(followRows.map((r) => r.following_id));
+        followingIds.add(input.userId);
+
+        const postsUrl = `${getSupabaseRestUrl("posts")}?order=created_at.desc&limit=100`;
+        const postsResp = await fetch(postsUrl, { method: "GET", headers: getSupabaseHeaders() });
+        if (!postsResp.ok) return [];
+
+        const allPosts: PostRow[] = await postsResp.json();
+        const discoverPosts = allPosts.filter((p) => !followingIds.has(p.user_id));
+
+        for (let i = discoverPosts.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [discoverPosts[i], discoverPosts[j]] = [discoverPosts[j], discoverPosts[i]];
+        }
+        const selected = discoverPosts.slice(0, input.limit);
+
+        if (selected.length === 0) return [];
+
+        const userIds = [...new Set(selected.map((p) => p.user_id))];
+        const idsParam = userIds.map((id) => `"${id}"`).join(",");
+        const usersUrl = `${getSupabaseRestUrl("users")}?id=in.(${idsParam})&select=id,display_name,car_brand,car_model,profile_picture`;
+        const usersResp = await fetch(usersUrl, { method: "GET", headers: getSupabaseHeaders() });
+        const allUsers: Record<string, any>[] = usersResp.ok ? await usersResp.json() : [];
+
+        const userMap = new Map<string, { displayName: string; carBrand?: string; carModel?: string; profilePicture?: string }>();
+        for (const u of allUsers) {
+          userMap.set(u.id, {
+            displayName: u.display_name,
+            carBrand: u.car_brand,
+            carModel: u.car_model,
+            profilePicture: u.profile_picture,
+          });
+        }
+
+        const postIds = selected.map((p) => p.id);
+        let revCounts: Record<string, number> = {};
+        let userRevs: Set<string> = new Set();
+
+        if (postIds.length > 0) {
+          const postIdFilter = postIds.map((id) => `"${id}"`).join(",");
+          const revsUrl = `${getSupabaseRestUrl("post_revs")}?post_id=in.(${postIdFilter})&select=post_id,user_id`;
+          const revsResp = await fetch(revsUrl, { method: "GET", headers: getSupabaseHeaders() });
+          if (revsResp.ok) {
+            const revRows: PostRevRow[] = await revsResp.json();
+            for (const rev of revRows) {
+              revCounts[rev.post_id] = (revCounts[rev.post_id] || 0) + 1;
+              if (rev.user_id === input.userId) {
+                userRevs.add(rev.post_id);
+              }
+            }
+          }
+        }
+
+        console.log("[POSTS] Discover posts found:", selected.length);
+        return selected.map((row) => ({
+          id: row.id,
+          userId: row.user_id,
+          userName: userMap.get(row.user_id)?.displayName ?? "Unknown",
+          userProfilePicture: userMap.get(row.user_id)?.profilePicture,
+          userCarBrand: userMap.get(row.user_id)?.carBrand,
+          userCarModel: userMap.get(row.user_id)?.carModel,
+          text: row.text,
+          imageUrl: row.image_url,
+          revCount: revCounts[row.id] || 0,
+          isRevved: userRevs.has(row.id),
+          createdAt: row.created_at,
+        }));
+      } catch (error) {
+        console.error("[POSTS] Discover posts error:", error);
+        return [];
+      }
+    }),
+
   deletePost: publicProcedure
     .input(
       z.object({

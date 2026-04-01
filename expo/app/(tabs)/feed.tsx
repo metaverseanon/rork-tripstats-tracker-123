@@ -13,7 +13,7 @@ import {
   Animated,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Navigation, Clock, MapPin, Search, X, UserPlus, Car, Zap, Users, Plus, Bell, Gauge } from 'lucide-react-native';
+import { Navigation, Clock, MapPin, Search, X, UserPlus, Car, Zap, Users, Plus, Bell, Gauge, Compass } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useSettings } from '@/providers/SettingsProvider';
@@ -63,6 +63,10 @@ interface SearchUser {
   city?: string;
 }
 
+type DiscoverItem =
+  | { kind: 'drive'; data: FeedItem }
+  | { kind: 'post'; data: PostItem };
+
 function formatTimeAgo(timestamp: number): string {
   const now = Date.now();
   const diff = now - timestamp;
@@ -84,7 +88,7 @@ function formatDuration(seconds: number): string {
   return `${mins}m`;
 }
 
-type FeedTab = 'drives' | 'posts';
+type FeedTab = 'drives' | 'posts' | 'discover';
 
 export default function FeedScreen() {
   const insets = useSafeAreaInsets();
@@ -111,6 +115,16 @@ export default function FeedScreen() {
     { enabled: !!user?.id, refetchInterval: 60000 }
   );
 
+  const discoverDrivesQuery = trpc.social.getDiscoverDrives.useQuery(
+    { userId: user?.id || '', limit: 20 },
+    { enabled: !!user?.id && activeTab === 'discover', refetchInterval: 120000 }
+  );
+
+  const discoverPostsQuery = trpc.posts.getDiscoverPosts.useQuery(
+    { userId: user?.id || '', limit: 20 },
+    { enabled: !!user?.id && activeTab === 'discover', refetchInterval: 120000 }
+  );
+
   const searchUsersQuery = trpc.social.searchUsers.useQuery(
     { query: searchQuery, currentUserId: user?.id || '' },
     { enabled: !!user?.id && searchQuery.length >= 2 }
@@ -126,6 +140,16 @@ export default function FeedScreen() {
     { enabled: !!user?.id, refetchInterval: 30000 }
   );
 
+  const followMutation = trpc.social.follow.useMutation({
+    onSettled: () => {
+      void utils.social.getFollowCounts.invalidate();
+      void utils.social.getDiscoverDrives.invalidate();
+      void utils.posts.getDiscoverPosts.invalidate();
+      void utils.social.getFeed.invalidate();
+      void utils.posts.getFeedPosts.invalidate();
+    },
+  });
+
   const revPostMutation = trpc.posts.revPost.useMutation({
     onMutate: async ({ postId }) => {
       await utils.posts.getFeedPosts.cancel();
@@ -139,7 +163,10 @@ export default function FeedScreen() {
     onError: (_err, _vars, ctx) => {
       if (ctx?.prev) utils.posts.getFeedPosts.setData({ userId: user?.id || '', limit: 30 }, ctx.prev);
     },
-    onSettled: () => { void utils.posts.getFeedPosts.invalidate(); },
+    onSettled: () => {
+      void utils.posts.getFeedPosts.invalidate();
+      void utils.posts.getDiscoverPosts.invalidate();
+    },
   });
 
   const unrevPostMutation = trpc.posts.unrevPost.useMutation({
@@ -155,7 +182,10 @@ export default function FeedScreen() {
     onError: (_err, _vars, ctx) => {
       if (ctx?.prev) utils.posts.getFeedPosts.setData({ userId: user?.id || '', limit: 30 }, ctx.prev);
     },
-    onSettled: () => { void utils.posts.getFeedPosts.invalidate(); },
+    onSettled: () => {
+      void utils.posts.getFeedPosts.invalidate();
+      void utils.posts.getDiscoverPosts.invalidate();
+    },
   });
 
   const revActivityMutation = trpc.social.revActivity.useMutation({
@@ -171,7 +201,10 @@ export default function FeedScreen() {
     onError: (_err, _vars, ctx) => {
       if (ctx?.prev) utils.social.getFeed.setData({ userId: user?.id || '', limit: 30 }, ctx.prev);
     },
-    onSettled: () => { void utils.social.getFeed.invalidate(); },
+    onSettled: () => {
+      void utils.social.getFeed.invalidate();
+      void utils.social.getDiscoverDrives.invalidate();
+    },
   });
 
   const unrevActivityMutation = trpc.social.unrevActivity.useMutation({
@@ -187,7 +220,10 @@ export default function FeedScreen() {
     onError: (_err, _vars, ctx) => {
       if (ctx?.prev) utils.social.getFeed.setData({ userId: user?.id || '', limit: 30 }, ctx.prev);
     },
-    onSettled: () => { void utils.social.getFeed.invalidate(); },
+    onSettled: () => {
+      void utils.social.getFeed.invalidate();
+      void utils.social.getDiscoverDrives.invalidate();
+    },
   });
 
   const handleRefresh = useCallback(() => {
@@ -195,7 +231,11 @@ export default function FeedScreen() {
     void postsQuery.refetch();
     void followCountsQuery.refetch();
     void unreadCountQuery.refetch();
-  }, [feedQuery, postsQuery, followCountsQuery, unreadCountQuery]);
+    if (activeTab === 'discover') {
+      void discoverDrivesQuery.refetch();
+      void discoverPostsQuery.refetch();
+    }
+  }, [feedQuery, postsQuery, followCountsQuery, unreadCountQuery, activeTab, discoverDrivesQuery, discoverPostsQuery]);
 
   const handleUserPress = useCallback((userId: string) => {
     if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -239,6 +279,16 @@ export default function FeedScreen() {
     }
   }, [user?.id, revActivityMutation, unrevActivityMutation]);
 
+  const handleFollowFromDiscover = useCallback((targetUserId: string) => {
+    if (!user?.id) {
+      setAuthGateFeature('follow drivers and build your community');
+      setShowAuthGate(true);
+      return;
+    }
+    if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    followMutation.mutate({ followerId: user.id, followingId: targetUserId });
+  }, [user?.id, followMutation]);
+
   const toggleSearch = useCallback(() => {
     setIsSearching(prev => !prev);
     setSearchQuery('');
@@ -247,8 +297,9 @@ export default function FeedScreen() {
   const switchTab = useCallback((tab: FeedTab) => {
     if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setActiveTab(tab);
+    const tabValue = tab === 'drives' ? 0 : tab === 'posts' ? 1 : 2;
     Animated.spring(tabIndicatorAnim, {
-      toValue: tab === 'drives' ? 0 : 1,
+      toValue: tabValue,
       useNativeDriver: true,
       tension: 300,
       friction: 20,
@@ -263,7 +314,21 @@ export default function FeedScreen() {
     return (postsQuery.data ?? []).sort((a, b) => b.createdAt - a.createdAt);
   }, [postsQuery.data]);
 
-  const renderActivityItem = useCallback((item: FeedItem) => {
+  const discoverFeed = useMemo((): DiscoverItem[] => {
+    const drives: DiscoverItem[] = (discoverDrivesQuery.data ?? []).map((d) => ({
+      kind: 'drive' as const,
+      data: d,
+    }));
+    const posts: DiscoverItem[] = (discoverPostsQuery.data ?? []).map((p) => ({
+      kind: 'post' as const,
+      data: p,
+    }));
+    const combined = [...drives, ...posts];
+    combined.sort((a, b) => b.data.createdAt - a.data.createdAt);
+    return combined;
+  }, [discoverDrivesQuery.data, discoverPostsQuery.data]);
+
+  const renderActivityItem = useCallback((item: FeedItem, showFollowButton?: boolean) => {
     const initial = item.userName?.[0]?.toUpperCase() || '?';
 
     return (
@@ -284,13 +349,35 @@ export default function FeedScreen() {
             <Text style={styles.feedUserName} numberOfLines={1}>{item.userName}</Text>
             <Text style={styles.feedTime}>{formatTimeAgo(item.createdAt)}</Text>
           </View>
-          {item.carModel && (
+          {showFollowButton && item.userId !== user?.id && (
+            <TouchableOpacity
+              style={styles.followBadge}
+              onPress={(e) => {
+                e.stopPropagation?.();
+                handleFollowFromDiscover(item.userId);
+              }}
+              activeOpacity={0.7}
+            >
+              <UserPlus size={12} color="#fff" />
+              <Text style={styles.followBadgeText}>Follow</Text>
+            </TouchableOpacity>
+          )}
+          {!showFollowButton && item.carModel && (
             <View style={styles.feedCarBadge}>
               <Car size={12} color={colors.accent} />
               <Text style={styles.feedCarText} numberOfLines={1}>{item.carModel}</Text>
             </View>
           )}
         </View>
+
+        {showFollowButton && item.carModel && (
+          <View style={[styles.feedCardBody, { paddingTop: 0 }]}>
+            <View style={[styles.feedCarBadge, { alignSelf: 'flex-start' as const, marginBottom: 6 }]}>
+              <Car size={12} color={colors.accent} />
+              <Text style={styles.feedCarText} numberOfLines={1}>{item.carModel}</Text>
+            </View>
+          </View>
+        )}
 
         <View style={styles.feedCardBody}>
           <Text style={styles.feedActivityText}>Logged a drive</Text>
@@ -343,9 +430,9 @@ export default function FeedScreen() {
         )}
       </TouchableOpacity>
     );
-  }, [styles, colors, convertSpeed, convertDistance, getSpeedLabel, getDistanceLabel, handleUserPress, handleActivityRevPress, user?.id]);
+  }, [styles, colors, convertSpeed, convertDistance, getSpeedLabel, getDistanceLabel, handleUserPress, handleActivityRevPress, handleFollowFromDiscover, user?.id]);
 
-  const renderPostItem = useCallback((item: PostItem) => {
+  const renderPostItem = useCallback((item: PostItem, showFollowButton?: boolean) => {
     const initial = item.userName?.[0]?.toUpperCase() || '?';
     const carDisplay = item.userCarBrand
       ? `${item.userCarBrand}${item.userCarModel ? ` ${item.userCarModel}` : ''}`
@@ -369,13 +456,31 @@ export default function FeedScreen() {
             <Text style={styles.feedUserName} numberOfLines={1}>{item.userName}</Text>
             <Text style={styles.feedTime}>{formatTimeAgo(item.createdAt)}</Text>
           </View>
-          {carDisplay && (
+          {showFollowButton && item.userId !== user?.id ? (
+            <TouchableOpacity
+              style={styles.followBadge}
+              onPress={() => handleFollowFromDiscover(item.userId)}
+              activeOpacity={0.7}
+            >
+              <UserPlus size={12} color="#fff" />
+              <Text style={styles.followBadgeText}>Follow</Text>
+            </TouchableOpacity>
+          ) : carDisplay ? (
             <View style={styles.feedCarBadge}>
               <Car size={12} color={colors.accent} />
               <Text style={styles.feedCarText} numberOfLines={1}>{carDisplay}</Text>
             </View>
-          )}
+          ) : null}
         </TouchableOpacity>
+
+        {showFollowButton && carDisplay && (
+          <View style={[styles.postTextContainer, { paddingBottom: 4 }]}>
+            <View style={[styles.feedCarBadge, { alignSelf: 'flex-start' as const }]}>
+              <Car size={12} color={colors.accent} />
+              <Text style={styles.feedCarText} numberOfLines={1}>{carDisplay}</Text>
+            </View>
+          </View>
+        )}
 
         {item.text ? (
           <View style={styles.postTextContainer}>
@@ -405,7 +510,7 @@ export default function FeedScreen() {
         </View>
       </View>
     );
-  }, [styles, colors, handleUserPress, handleRevPress]);
+  }, [styles, colors, handleUserPress, handleRevPress, handleFollowFromDiscover, user?.id]);
 
   const renderDriveItem = useCallback(({ item }: { item: FeedItem }) => {
     return renderActivityItem(item);
@@ -414,6 +519,13 @@ export default function FeedScreen() {
   const renderPostFeedItem = useCallback(({ item }: { item: PostItem }) => {
     return renderPostItem(item);
   }, [renderPostItem]);
+
+  const renderDiscoverItem = useCallback(({ item }: { item: DiscoverItem }) => {
+    if (item.kind === 'drive') {
+      return renderActivityItem(item.data, true);
+    }
+    return renderPostItem(item.data, true);
+  }, [renderActivityItem, renderPostItem]);
 
   const renderSearchResult = useCallback(({ item }: { item: SearchUser }) => {
     const carDisplay = item.carBrand
@@ -485,7 +597,25 @@ export default function FeedScreen() {
     </View>
   ), [styles, colors, requireAuth, router]);
 
+  const emptyDiscover = useMemo(() => (
+    <View style={styles.emptyContainer}>
+      <Compass size={48} color={colors.textLight} />
+      <Text style={styles.emptyTitle}>Nothing to discover</Text>
+      <Text style={styles.emptySubtext}>
+        Check back later for new drivers and content to explore
+      </Text>
+    </View>
+  ), [styles, colors]);
+
   const unreadCount = unreadCountQuery.data?.count ?? 0;
+  const discoverLoading = discoverDrivesQuery.isLoading || discoverPostsQuery.isLoading;
+  const discoverRefetching = discoverDrivesQuery.isRefetching || discoverPostsQuery.isRefetching;
+
+  const tabIndicatorLeft = useMemo(() => {
+    if (activeTab === 'drives') return '0%' as const;
+    if (activeTab === 'posts') return '33.33%' as const;
+    return '66.66%' as const;
+  }, [activeTab]);
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
@@ -562,7 +692,7 @@ export default function FeedScreen() {
           activeOpacity={0.7}
           testID="tab-drives"
         >
-          <Navigation size={15} color={activeTab === 'drives' ? colors.accent : colors.textLight} />
+          <Navigation size={14} color={activeTab === 'drives' ? colors.accent : colors.textLight} />
           <Text style={[styles.tabText, activeTab === 'drives' && styles.tabTextActive]}>Drives</Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -571,21 +701,24 @@ export default function FeedScreen() {
           activeOpacity={0.7}
           testID="tab-posts"
         >
-          <Users size={15} color={activeTab === 'posts' ? colors.accent : colors.textLight} />
+          <Users size={14} color={activeTab === 'posts' ? colors.accent : colors.textLight} />
           <Text style={[styles.tabText, activeTab === 'posts' && styles.tabTextActive]}>Posts</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabItem, activeTab === 'discover' && styles.tabItemActive]}
+          onPress={() => switchTab('discover')}
+          activeOpacity={0.7}
+          testID="tab-discover"
+        >
+          <Compass size={14} color={activeTab === 'discover' ? colors.accent : colors.textLight} />
+          <Text style={[styles.tabText, activeTab === 'discover' && styles.tabTextActive]}>Discover</Text>
         </TouchableOpacity>
         <Animated.View
           style={[
             styles.tabIndicator,
             {
-              transform: [{
-                translateX: tabIndicatorAnim.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0, 1],
-                }),
-              }],
-              left: activeTab === 'drives' ? '0%' : '50%',
-              width: '50%',
+              left: tabIndicatorLeft,
+              width: '33.33%' as const,
             },
           ]}
         />
@@ -616,7 +749,7 @@ export default function FeedScreen() {
             ListEmptyComponent={emptyDrives}
           />
         )
-      ) : (
+      ) : activeTab === 'posts' ? (
         postsQuery.isLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={colors.accent} />
@@ -639,6 +772,31 @@ export default function FeedScreen() {
               />
             }
             ListEmptyComponent={emptyPosts}
+          />
+        )
+      ) : (
+        discoverLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.accent} />
+          </View>
+        ) : (
+          <FlatList
+            data={discoverFeed}
+            renderItem={renderDiscoverItem}
+            keyExtractor={(item) => `discover_${item.kind}_${item.data.id}`}
+            contentContainerStyle={[
+              styles.feedList,
+              discoverFeed.length === 0 && styles.feedListEmpty,
+            ]}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={discoverRefetching}
+                onRefresh={handleRefresh}
+                tintColor={colors.accent}
+              />
+            }
+            ListEmptyComponent={emptyDiscover}
           />
         )
       )}
@@ -984,13 +1142,13 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 10,
     borderRadius: 10,
-    gap: 6,
+    gap: 5,
   },
   tabItemActive: {
     backgroundColor: colors.accent + '12',
   },
   tabText: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: 'Orbitron_600SemiBold',
     color: colors.textLight,
   },
@@ -1033,6 +1191,20 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   revLabelActive: {
     color: colors.accent,
+  },
+  followBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: colors.accent,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  followBadgeText: {
+    fontSize: 11,
+    fontFamily: 'Orbitron_600SemiBold',
+    color: '#FFFFFF',
   },
   emptyContainer: {
     alignItems: 'center',

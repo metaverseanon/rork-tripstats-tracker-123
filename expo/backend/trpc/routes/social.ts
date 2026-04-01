@@ -736,6 +736,98 @@ export const socialRouter = createTRPCRouter({
       }
     }),
 
+  getDiscoverDrives: publicProcedure
+    .input(z.object({
+      userId: z.string(),
+      limit: z.number().optional().default(20),
+    }))
+    .query(async ({ input }) => {
+      console.log("[SOCIAL] Fetching discover drives for user:", input.userId);
+      if (!isDbConfigured()) return [];
+
+      try {
+        const followingUrl = `${getSupabaseRestUrl("follows")}?follower_id=eq.${encodeURIComponent(input.userId)}&select=following_id`;
+        const followResp = await fetch(followingUrl, { method: "GET", headers: getSupabaseHeaders() });
+        const followRows: { following_id: string }[] = followResp.ok ? await followResp.json() : [];
+        const followingIds = new Set(followRows.map(r => r.following_id));
+        followingIds.add(input.userId);
+
+        const feedUrl = `${getSupabaseRestUrl("activity_feed")}?order=created_at.desc&limit=100`;
+        const feedResp = await fetch(feedUrl, { method: "GET", headers: getSupabaseHeaders() });
+        if (!feedResp.ok) return [];
+
+        const allRows: ActivityFeedRow[] = await feedResp.json();
+        const discoverRows = allRows.filter(r => !followingIds.has(r.user_id));
+
+        for (let i = discoverRows.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [discoverRows[i], discoverRows[j]] = [discoverRows[j], discoverRows[i]];
+        }
+        const selected = discoverRows.slice(0, input.limit);
+
+        if (selected.length === 0) return [];
+
+        const userIds = [...new Set(selected.map(r => r.user_id))];
+        const idsParam = userIds.map(id => `"${id}"`).join(',');
+        const usersUrl = `${getSupabaseRestUrl("users")}?id=in.(${idsParam})&select=id,display_name,car_brand,car_model,country,city,profile_picture`;
+        const usersResp = await fetch(usersUrl, { method: "GET", headers: getSupabaseHeaders() });
+        const allUsers: Record<string, any>[] = usersResp.ok ? await usersResp.json() : [];
+
+        const userMap = new Map<string, { displayName: string; carBrand?: string; carModel?: string; profilePicture?: string; country?: string; city?: string }>();
+        for (const u of allUsers) {
+          userMap.set(u.id, {
+            displayName: u.display_name,
+            carBrand: u.car_brand,
+            carModel: u.car_model,
+            profilePicture: u.profile_picture,
+            country: u.country,
+            city: u.city,
+          });
+        }
+
+        const activityIds = selected.map(r => r.id);
+        let activityRevCounts: Record<string, number> = {};
+        let userActivityRevs: Set<string> = new Set();
+
+        if (activityIds.length > 0) {
+          const actIdFilter = activityIds.map(id => `"${id}"`).join(",");
+          const revsUrl = `${getSupabaseRestUrl("activity_revs")}?activity_id=in.(${actIdFilter})&select=activity_id,user_id`;
+          const revsResp = await fetch(revsUrl, { method: "GET", headers: getSupabaseHeaders() });
+          if (revsResp.ok) {
+            const revRows: ActivityRevRow[] = await revsResp.json();
+            for (const rev of revRows) {
+              activityRevCounts[rev.activity_id] = (activityRevCounts[rev.activity_id] || 0) + 1;
+              if (rev.user_id === input.userId) {
+                userActivityRevs.add(rev.activity_id);
+              }
+            }
+          }
+        }
+
+        console.log("[SOCIAL] Discover drives found:", selected.length);
+        return selected.map(row => ({
+          id: row.id,
+          userId: row.user_id,
+          userName: userMap.get(row.user_id)?.displayName ?? "Unknown",
+          userProfilePicture: userMap.get(row.user_id)?.profilePicture,
+          type: row.type,
+          tripId: row.trip_id,
+          carModel: row.car_model,
+          topSpeed: row.top_speed ?? 0,
+          distance: row.distance ?? 0,
+          duration: row.duration ?? 0,
+          country: row.country,
+          city: row.city,
+          revCount: activityRevCounts[row.id] || 0,
+          isRevved: userActivityRevs.has(row.id),
+          createdAt: row.created_at,
+        }));
+      } catch (error) {
+        console.error("[SOCIAL] Discover drives error:", error);
+        return [];
+      }
+    }),
+
   searchUsers: publicProcedure
     .input(z.object({
       query: z.string().min(1),
