@@ -610,7 +610,8 @@ export default function UserProfileScreen() {
     if (profileUser.cars && profileUser.cars.length > 0) {
       for (const car of profileUser.cars) {
         const key = `${car.brand} ${car.model}`;
-        carMap.set(key, { brand: car.brand, model: car.model, picture: car.picture, trips: [] });
+        const pic = car.picture || (car.isPrimary ? profileUser.carPicture : undefined);
+        carMap.set(key, { brand: car.brand, model: car.model, picture: pic || undefined, trips: [] });
       }
     } else if (profileUser.carBrand) {
       const key = `${profileUser.carBrand} ${profileUser.carModel || ''}`.trim();
