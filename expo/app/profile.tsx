@@ -55,6 +55,8 @@ export default function ProfileScreen() {
   const [carPicture, setCarPicture] = useState(user?.carPicture || '');
   const [bio, setBio] = useState(user?.bio || '');
   const [profilePicLoadFailed, setProfilePicLoadFailed] = useState(false);
+  const [carPicLoadFailed, setCarPicLoadFailed] = useState(false);
+  const [failedCarPicIds, setFailedCarPicIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (user) {
@@ -68,6 +70,8 @@ export default function ProfileScreen() {
       setCarPicture(prev => prev || user.carPicture || '');
       setBio(prev => prev || user.bio || '');
       setProfilePicLoadFailed(false);
+      setCarPicLoadFailed(false);
+      setFailedCarPicIds(new Set());
     }
   }, [user]);
   const [additionalCars, setAdditionalCars] = useState<AdditionalCar[]>([]);
@@ -363,15 +367,27 @@ export default function ProfileScreen() {
   };
 
   const handleRemoveExistingCar = async (carId: string) => {
+    const car = user?.cars?.find(c => c.id === carId);
+    const isPrimary = car?.isPrimary;
     Alert.alert(
       'Remove Car',
-      'Are you sure you want to remove this car?',
+      isPrimary
+        ? 'This is your primary car. Are you sure you want to remove it?'
+        : 'Are you sure you want to remove this car?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Remove',
           style: 'destructive',
-          onPress: () => removeCar(carId),
+          onPress: async () => {
+            await removeCar(carId);
+            if (isPrimary) {
+              setSelectedBrand('');
+              setSelectedModel('');
+              setCarPicture('');
+              setCarPicLoadFailed(false);
+            }
+          },
         },
       ]
     );
@@ -980,28 +996,57 @@ export default function ProfileScreen() {
       <View style={styles.sectionContent}>
         {primaryCar && (
           <View style={styles.primaryCarCard}>
-            {primaryCar.picture ? (
-              <Image source={{ uri: primaryCar.picture }} style={styles.primaryCarImage} />
-            ) : (
-              <TouchableOpacity style={styles.primaryCarImagePlaceholder} onPress={pickCarPicture}>
-                <ImageIcon color="rgba(255,255,255,0.4)" size={40} />
-                <Text style={styles.primaryCarPlaceholderText}>Tap to add photo</Text>
+            <TouchableOpacity activeOpacity={0.8} onPress={pickCarPicture}>
+              {primaryCar.picture && !carPicLoadFailed ? (
+                <Image
+                  source={{ uri: primaryCar.picture }}
+                  style={styles.primaryCarImage}
+                  onError={() => {
+                    console.log('[PROFILE] Car picture failed to load:', primaryCar.picture);
+                    setCarPicLoadFailed(true);
+                  }}
+                />
+              ) : (
+                <View style={styles.primaryCarImagePlaceholder}>
+                  <ImageIcon color="rgba(255,255,255,0.4)" size={40} />
+                  <Text style={styles.primaryCarPlaceholderText}>
+                    {carPicLoadFailed ? 'Photo failed to load. Tap to replace' : 'Tap to add photo'}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            <View style={styles.primaryBadgeRow}>
+              <View style={styles.primaryBadge}>
+                <Text style={styles.primaryBadgeText}>PRIMARY</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.removeCarBadge}
+                onPress={() => handleRemoveExistingCar(primaryCar.id)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <X color="#FFFFFF" size={14} />
               </TouchableOpacity>
-            )}
-            <View style={styles.primaryBadge}>
-              <Text style={styles.primaryBadgeText}>PRIMARY</Text>
             </View>
           </View>
         )}
 
         {!primaryCar && (
           <TouchableOpacity style={styles.carImagePicker} onPress={pickCarPicture}>
-            {carPicture ? (
-              <Image source={{ uri: carPicture }} style={styles.primaryCarImage} />
+            {carPicture && !carPicLoadFailed ? (
+              <Image
+                source={{ uri: carPicture }}
+                style={styles.primaryCarImage}
+                onError={() => {
+                  console.log('[PROFILE] Car picture failed to load:', carPicture);
+                  setCarPicLoadFailed(true);
+                }}
+              />
             ) : (
               <View style={styles.carImagePlaceholder}>
                 <ImageIcon color={colors.textLight} size={32} />
-                <Text style={styles.carImagePlaceholderText}>Tap to add car photo</Text>
+                <Text style={styles.carImagePlaceholderText}>
+                  {carPicLoadFailed ? 'Photo failed to load. Tap to replace' : 'Tap to add car photo'}
+                </Text>
               </View>
             )}
           </TouchableOpacity>
@@ -1067,8 +1112,15 @@ export default function ProfileScreen() {
             activeOpacity={0.7}
           >
             <View style={styles.secondaryCarLeft}>
-              {car.picture ? (
-                <Image source={{ uri: car.picture }} style={styles.secondaryCarThumb} />
+              {car.picture && !failedCarPicIds.has(car.id) ? (
+                <Image
+                  source={{ uri: car.picture }}
+                  style={styles.secondaryCarThumb}
+                  onError={() => {
+                    console.log('[PROFILE] Secondary car pic failed:', car.id, car.picture);
+                    setFailedCarPicIds(prev => new Set(prev).add(car.id));
+                  }}
+                />
               ) : (
                 <View style={styles.secondaryCarThumbPlaceholder}>
                   <Car color={colors.textLight} size={20} />
@@ -1080,7 +1132,10 @@ export default function ProfileScreen() {
             </View>
             <View style={styles.secondaryCarRight}>
               <TouchableOpacity
-                onPress={() => handleRemoveExistingCar(car.id)}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  void handleRemoveExistingCar(car.id);
+                }}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
                 <X color={colors.textLight} size={16} />
@@ -2149,14 +2204,28 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: 'rgba(255,255,255,0.5)',
     marginTop: 8,
   },
-  primaryBadge: {
+  primaryBadgeRow: {
     position: 'absolute',
     top: 12,
     left: 12,
+    right: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  primaryBadge: {
     backgroundColor: colors.accent,
     borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: 5,
+  },
+  removeCarBadge: {
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 14,
+    width: 28,
+    height: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   primaryBadgeText: {
     fontSize: 10,
