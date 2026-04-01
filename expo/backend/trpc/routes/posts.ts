@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "../create-context";
-import { isDbConfigured, getSupabaseHeaders, getSupabaseRestUrl } from "../db";
+import { isDbConfigured, getSupabaseHeaders, getSupabaseRestUrl, getDbConfig } from "../db";
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 
@@ -95,12 +95,21 @@ export const postsRouter = createTRPCRouter({
     )
     .mutation(async ({ input }) => {
       console.log("[POSTS] Uploading post image for user:", input.userId, "postId:", input.postId);
-      if (!isDbConfigured()) return { success: false, url: null, error: "Database not configured" };
+      if (!isDbConfigured()) {
+        console.error("[POSTS] DB not configured for upload");
+        return { success: false, url: null, error: "Database not configured" };
+      }
 
       try {
-        const { url: supabaseUrl, serviceRoleKey, anonKey } = require("../db").getDbConfig();
+        const dbConfig = getDbConfig();
+        const supabaseUrl = dbConfig.url;
+        const serviceRoleKey = dbConfig.serviceRoleKey;
+        const anonKey = dbConfig.anonKey;
+
+        console.log("[POSTS] Upload config check - URL:", !!supabaseUrl, "serviceKey:", !!serviceRoleKey, "anonKey:", !!anonKey);
+
         if (!supabaseUrl || !serviceRoleKey) {
-          console.error("[POSTS] Supabase not configured for image upload");
+          console.error("[POSTS] Supabase not configured for image upload. URL:", supabaseUrl, "serviceKey length:", serviceRoleKey?.length);
           return { success: false, url: null, error: "Storage not configured" };
         }
 
@@ -109,10 +118,22 @@ export const postsRouter = createTRPCRouter({
         const fileName = `${input.userId}/posts/${input.postId}_${timestamp}.jpg`;
         const uploadUrl = `${supabaseUrl}/storage/v1/object/${BUCKET_NAME}/${fileName}`;
 
-        const binaryString = atob(input.base64);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
+        console.log("[POSTS] Base64 input length:", input.base64.length);
+
+        let bytes: Uint8Array;
+        try {
+          if (typeof Buffer !== 'undefined') {
+            bytes = new Uint8Array(Buffer.from(input.base64, 'base64'));
+          } else {
+            const binaryString = atob(input.base64);
+            bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+              bytes[i] = binaryString.charCodeAt(i);
+            }
+          }
+        } catch (decodeError: any) {
+          console.error("[POSTS] Base64 decode failed:", decodeError?.message);
+          return { success: false, url: null, error: "Failed to decode image data" };
         }
 
         console.log("[POSTS] Uploading to Supabase Storage:", uploadUrl.substring(0, 80));
@@ -126,21 +147,23 @@ export const postsRouter = createTRPCRouter({
             'Content-Type': input.mimeType,
             'x-upsert': 'true',
           },
-          body: bytes,
+          body: bytes as any,
         });
+
+        console.log("[POSTS] Upload response status:", uploadResponse.status);
 
         if (!uploadResponse.ok) {
           const errorText = await uploadResponse.text();
           console.error("[POSTS] Image upload failed:", uploadResponse.status, errorText);
-          return { success: false, url: null, error: `Upload failed: ${uploadResponse.status}` };
+          return { success: false, url: null, error: `Upload failed (${uploadResponse.status}): ${errorText}` };
         }
 
         const publicUrl = `${supabaseUrl}/storage/v1/object/public/${BUCKET_NAME}/${fileName}`;
         console.log("[POSTS] Image uploaded successfully:", publicUrl.substring(0, 80));
         return { success: true, url: publicUrl, error: null };
-      } catch (error) {
-        console.error("[POSTS] Image upload error:", error);
-        return { success: false, url: null, error: "Upload error" };
+      } catch (error: any) {
+        console.error("[POSTS] Image upload error:", error?.message, error?.stack);
+        return { success: false, url: null, error: `Upload error: ${error?.message || 'Unknown'}` };
       }
     }),
 
