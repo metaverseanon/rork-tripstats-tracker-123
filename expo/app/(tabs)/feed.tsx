@@ -153,15 +153,20 @@ export default function FeedScreen() {
   const revPostMutation = trpc.posts.revPost.useMutation({
     onMutate: async ({ postId }) => {
       await utils.posts.getFeedPosts.cancel();
+      await utils.posts.getDiscoverPosts.cancel();
       const prev = utils.posts.getFeedPosts.getData({ userId: user?.id || '', limit: 30 });
-      utils.posts.getFeedPosts.setData({ userId: user?.id || '', limit: 30 }, (old) => {
+      const prevDiscover = utils.posts.getDiscoverPosts.getData({ userId: user?.id || '', limit: 20 });
+      const updatePost = (old: any[] | undefined) => {
         if (!old) return old;
-        return old.map((p) => p.id === postId ? { ...p, isRevved: true, revCount: p.revCount + 1 } : p);
-      });
-      return { prev };
+        return old.map((p: any) => p.id === postId ? { ...p, isRevved: true, revCount: p.revCount + 1 } : p);
+      };
+      utils.posts.getFeedPosts.setData({ userId: user?.id || '', limit: 30 }, updatePost);
+      utils.posts.getDiscoverPosts.setData({ userId: user?.id || '', limit: 20 }, updatePost);
+      return { prev, prevDiscover };
     },
     onError: (_err, _vars, ctx) => {
       if (ctx?.prev) utils.posts.getFeedPosts.setData({ userId: user?.id || '', limit: 30 }, ctx.prev);
+      if (ctx?.prevDiscover) utils.posts.getDiscoverPosts.setData({ userId: user?.id || '', limit: 20 }, ctx.prevDiscover);
     },
     onSettled: () => {
       void utils.posts.getFeedPosts.invalidate();
@@ -172,15 +177,20 @@ export default function FeedScreen() {
   const unrevPostMutation = trpc.posts.unrevPost.useMutation({
     onMutate: async ({ postId }) => {
       await utils.posts.getFeedPosts.cancel();
+      await utils.posts.getDiscoverPosts.cancel();
       const prev = utils.posts.getFeedPosts.getData({ userId: user?.id || '', limit: 30 });
-      utils.posts.getFeedPosts.setData({ userId: user?.id || '', limit: 30 }, (old) => {
+      const prevDiscover = utils.posts.getDiscoverPosts.getData({ userId: user?.id || '', limit: 20 });
+      const updatePost = (old: any[] | undefined) => {
         if (!old) return old;
-        return old.map((p) => p.id === postId ? { ...p, isRevved: false, revCount: Math.max(0, p.revCount - 1) } : p);
-      });
-      return { prev };
+        return old.map((p: any) => p.id === postId ? { ...p, isRevved: false, revCount: Math.max(0, p.revCount - 1) } : p);
+      };
+      utils.posts.getFeedPosts.setData({ userId: user?.id || '', limit: 30 }, updatePost);
+      utils.posts.getDiscoverPosts.setData({ userId: user?.id || '', limit: 20 }, updatePost);
+      return { prev, prevDiscover };
     },
     onError: (_err, _vars, ctx) => {
       if (ctx?.prev) utils.posts.getFeedPosts.setData({ userId: user?.id || '', limit: 30 }, ctx.prev);
+      if (ctx?.prevDiscover) utils.posts.getDiscoverPosts.setData({ userId: user?.id || '', limit: 20 }, ctx.prevDiscover);
     },
     onSettled: () => {
       void utils.posts.getFeedPosts.invalidate();
@@ -191,15 +201,20 @@ export default function FeedScreen() {
   const revActivityMutation = trpc.social.revActivity.useMutation({
     onMutate: async ({ activityId }) => {
       await utils.social.getFeed.cancel();
+      await utils.social.getDiscoverDrives.cancel();
       const prev = utils.social.getFeed.getData({ userId: user?.id || '', limit: 30 });
-      utils.social.getFeed.setData({ userId: user?.id || '', limit: 30 }, (old) => {
+      const prevDiscover = utils.social.getDiscoverDrives.getData({ userId: user?.id || '', limit: 20 });
+      const updateActivity = (old: any[] | undefined) => {
         if (!old) return old;
-        return old.map((a) => a.id === activityId ? { ...a, isRevved: true, revCount: a.revCount + 1 } : a);
-      });
-      return { prev };
+        return old.map((a: any) => a.id === activityId ? { ...a, isRevved: true, revCount: a.revCount + 1 } : a);
+      };
+      utils.social.getFeed.setData({ userId: user?.id || '', limit: 30 }, updateActivity);
+      utils.social.getDiscoverDrives.setData({ userId: user?.id || '', limit: 20 }, updateActivity);
+      return { prev, prevDiscover };
     },
     onError: (_err, _vars, ctx) => {
       if (ctx?.prev) utils.social.getFeed.setData({ userId: user?.id || '', limit: 30 }, ctx.prev);
+      if (ctx?.prevDiscover) utils.social.getDiscoverDrives.setData({ userId: user?.id || '', limit: 20 }, ctx.prevDiscover);
     },
     onSettled: () => {
       void utils.social.getFeed.invalidate();
@@ -210,15 +225,20 @@ export default function FeedScreen() {
   const unrevActivityMutation = trpc.social.unrevActivity.useMutation({
     onMutate: async ({ activityId }) => {
       await utils.social.getFeed.cancel();
+      await utils.social.getDiscoverDrives.cancel();
       const prev = utils.social.getFeed.getData({ userId: user?.id || '', limit: 30 });
-      utils.social.getFeed.setData({ userId: user?.id || '', limit: 30 }, (old) => {
+      const prevDiscover = utils.social.getDiscoverDrives.getData({ userId: user?.id || '', limit: 20 });
+      const updateActivity = (old: any[] | undefined) => {
         if (!old) return old;
-        return old.map((a) => a.id === activityId ? { ...a, isRevved: false, revCount: Math.max(0, a.revCount - 1) } : a);
-      });
-      return { prev };
+        return old.map((a: any) => a.id === activityId ? { ...a, isRevved: false, revCount: Math.max(0, a.revCount - 1) } : a);
+      };
+      utils.social.getFeed.setData({ userId: user?.id || '', limit: 30 }, updateActivity);
+      utils.social.getDiscoverDrives.setData({ userId: user?.id || '', limit: 20 }, updateActivity);
+      return { prev, prevDiscover };
     },
     onError: (_err, _vars, ctx) => {
       if (ctx?.prev) utils.social.getFeed.setData({ userId: user?.id || '', limit: 30 }, ctx.prev);
+      if (ctx?.prevDiscover) utils.social.getDiscoverDrives.setData({ userId: user?.id || '', limit: 20 }, ctx.prevDiscover);
     },
     onSettled: () => {
       void utils.social.getFeed.invalidate();
