@@ -1,8 +1,16 @@
 import { Platform } from 'react-native';
 
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
-const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
 const BUCKET_NAME = 'user-images';
+
+function getSupabaseUrl(): string {
+  const url = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
+  return url;
+}
+
+function getSupabaseAnonKey(): string {
+  const key = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
+  return key;
+}
 
 function isRemoteUrl(uri: string): boolean {
   return uri.startsWith('http://') || uri.startsWith('https://');
@@ -18,6 +26,9 @@ export async function uploadImage(
   type: 'profile' | 'car',
   carId?: string,
 ): Promise<string | null> {
+  const SUPABASE_URL = getSupabaseUrl();
+  const SUPABASE_ANON_KEY = getSupabaseAnonKey();
+
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
     console.log('[IMAGE_UPLOAD] Supabase not configured, skipping upload');
     return null;
@@ -101,6 +112,9 @@ export async function uploadCarPicture(localUri: string, userId: string, carId: 
 }
 
 export async function uploadPostImage(localUri: string, userId: string, postId: string): Promise<string | null> {
+  const SUPABASE_URL = getSupabaseUrl();
+  const SUPABASE_ANON_KEY = getSupabaseAnonKey();
+
   console.log('[POST_UPLOAD] === START uploadPostImage ===');
   console.log('[POST_UPLOAD] SUPABASE_URL set:', !!SUPABASE_URL, 'length:', SUPABASE_URL.length);
   console.log('[POST_UPLOAD] SUPABASE_ANON_KEY set:', !!SUPABASE_ANON_KEY, 'length:', SUPABASE_ANON_KEY.length);
