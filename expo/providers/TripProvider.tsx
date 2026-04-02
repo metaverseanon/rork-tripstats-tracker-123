@@ -301,10 +301,24 @@ export const [TripProvider, useTrips] = createContextHook(() => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
+  const fetchWithRetry = async <T,>(fn: () => Promise<T>, retries = 2, delay = 2000): Promise<T | null> => {
+    for (let i = 0; i <= retries; i++) {
+      try {
+        return await fn();
+      } catch (error) {
+        const isLast = i === retries;
+        console.warn(`[CLOUD_RESTORE] Fetch attempt ${i + 1}/${retries + 1} failed:`, error instanceof Error ? error.message : 'Unknown error');
+        if (isLast) return null;
+        await new Promise(r => setTimeout(r, delay * (i + 1)));
+      }
+    }
+    return null;
+  };
+
   const restoreTripsFromCloud = async (userId: string) => {
     try {
       console.log('[CLOUD_RESTORE] Fetching trips from backend for user:', userId);
-      const serverTrips = await trpcClient.trips.getUserTrips.query({ userId });
+      const serverTrips = await fetchWithRetry(() => trpcClient.trips.getUserTrips.query({ userId }));
       
       if (!serverTrips || serverTrips.length === 0) {
         console.log('[CLOUD_RESTORE] No trips found on server');
@@ -365,7 +379,7 @@ export const [TripProvider, useTrips] = createContextHook(() => {
 
       setCloudRestoreDone(true);
     } catch (error) {
-      console.error('[CLOUD_RESTORE] Failed to restore trips from cloud:', error);
+      console.warn('[CLOUD_RESTORE] Failed to restore trips from cloud, will retry on next app launch:', error instanceof Error ? error.message : 'Unknown error');
       setCloudRestoreDone(true);
     }
   };

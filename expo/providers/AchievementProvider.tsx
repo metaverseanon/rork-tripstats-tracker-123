@@ -49,10 +49,24 @@ export const [AchievementProvider, useAchievements] = createContextHook(() => {
     void fetchAndMergeFromBackend(user.id);
   }, [user?.id]);
 
+  const fetchWithRetry = async <T,>(fn: () => Promise<T>, retries = 2, delay = 2000): Promise<T | null> => {
+    for (let i = 0; i <= retries; i++) {
+      try {
+        return await fn();
+      } catch (error) {
+        const isLast = i === retries;
+        console.warn(`[ACHIEVEMENTS] Fetch attempt ${i + 1}/${retries + 1} failed:`, error instanceof Error ? error.message : 'Unknown error');
+        if (isLast) return null;
+        await new Promise(r => setTimeout(r, delay * (i + 1)));
+      }
+    }
+    return null;
+  };
+
   const fetchAndMergeFromBackend = async (userId: string) => {
     try {
       console.log('[ACHIEVEMENTS] Fetching from backend for user:', userId);
-      const remote = await trpcClient.social.getUserAchievements.query({ userId });
+      const remote = await fetchWithRetry(() => trpcClient.social.getUserAchievements.query({ userId }));
       if (!remote || remote.length === 0) {
         console.log('[ACHIEVEMENTS] No remote achievements found');
         return;
@@ -82,7 +96,7 @@ export const [AchievementProvider, useAchievements] = createContextHook(() => {
         console.log('[ACHIEVEMENTS] Local already up to date');
       }
     } catch (error) {
-      console.error('[ACHIEVEMENTS] Failed to fetch from backend:', error);
+      console.warn('[ACHIEVEMENTS] Failed to fetch from backend, will retry on next app launch:', error instanceof Error ? error.message : 'Unknown error');
     }
   };
 
