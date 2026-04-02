@@ -145,7 +145,7 @@ function CommentsModal({ visible, onClose, postId, userId, colors }: CommentsMod
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={0}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
       >
         <View style={styles.handleBar}>
           <View style={styles.handle} />
