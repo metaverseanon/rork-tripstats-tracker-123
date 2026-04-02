@@ -19,6 +19,14 @@ interface PostRevRow {
   created_at: number;
 }
 
+interface CommentRow {
+  id: string;
+  post_id: string;
+  user_id: string;
+  text: string;
+  created_at: number;
+}
+
 interface NotificationRow {
   id: string;
   user_id: string;
@@ -642,6 +650,214 @@ export const postsRouter = createTRPCRouter({
       }
     }),
 
+  getComments: publicProcedure
+    .input(
+      z.object({
+        postId: z.string(),
+        limit: z.number().optional().default(50),
+      })
+    )
+    .query(async ({ input }) => {
+      console.log("[POSTS] Fetching comments for post:", input.postId);
+      if (!isDbConfigured()) return [];
+
+      try {
+        const commentsUrl = `${getSupabaseRestUrl("post_comments")}?post_id=eq.${encodeURIComponent(input.postId)}&order=created_at.asc&limit=${input.limit}`;
+        const commentsResp = await fetch(commentsUrl, { method: "GET", headers: getSupabaseHeaders() });
+        if (!commentsResp.ok) return [];
+
+        const commentRows: CommentRow[] = await commentsResp.json();
+        console.log("[POSTS] Comments fetched:", commentRows.length);
+
+        const userIds = [...new Set(commentRows.map((c) => c.user_id))];
+        let userMap = new Map<string, { displayName: string; profilePicture?: string }>();
+
+        if (userIds.length > 0) {
+          const idFilter = userIds.map((id) => `"${id}"`).join(",");
+          const usersUrl = `${getSupabaseRestUrl("users")}?id=in.(${idFilter})&select=id,display_name,profile_picture`;
+          const usersResp = await fetch(usersUrl, { method: "GET", headers: getSupabaseHeaders() });
+          if (usersResp.ok) {
+            const users: Record<string, any>[] = await usersResp.json();
+            for (const u of users) {
+              userMap.set(u.id, { displayName: u.display_name, profilePicture: u.profile_picture });
+            }
+          }
+        }
+
+        return commentRows.map((row) => ({
+          id: row.id,
+          postId: row.post_id,
+          userId: row.user_id,
+          userName: userMap.get(row.user_id)?.displayName ?? "Unknown",
+          userProfilePicture: userMap.get(row.user_id)?.profilePicture,
+          text: row.text,
+          createdAt: row.created_at,
+        }));
+      } catch (error) {
+        console.error("[POSTS] Comments error:", error);
+        return [];
+      }
+    }),
+
+  addComment: publicProcedure
+    .input(
+      z.object({
+        postId: z.string(),
+        userId: z.string(),
+        text: z.string().min(1).max(500),
+      })
+    )
+    .mutation(async ({ input }) => {
+      console.log("[POSTS] Adding comment to post:", input.postId, "by user:", input.userId);
+      if (!isDbConfigured()) return { success: false, error: "Database not configured" };
+
+      try {
+        const id = `comment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const row = {
+          id,
+          post_id: input.postId,
+          user_id: input.userId,
+          text: input.text.trim(),
+          created_at: Date.now(),
+        };
+
+        const resp = await fetch(getSupabaseRestUrl("post_comments"), {
+          method: "POST",
+          headers: getSupabaseHeaders(),
+          body: JSON.stringify(row),
+        });
+
+        if (!resp.ok) {
+          const err = await resp.text();
+          console.error("[POSTS] Comment insert failed:", err);
+          return { success: false, error: "Failed to add comment" };
+        }
+
+        const postUrl = `${getSupabaseRestUrl("posts")}?id=eq.${encodeURIComponent(input.postId)}&select=user_id&limit=1`;
+        const postResp = await fetch(postUrl, { method: "GET", headers: getSupabaseHeaders() });
+        if (postResp.ok) {
+          const postData = await postResp.json();
+          const postOwnerId = postData[0]?.user_id;
+          if (postOwnerId && postOwnerId !== input.userId) {
+            const userUrl = `${getSupabaseRestUrl("users")}?id=eq.${encodeURIComponent(input.userId)}&select=display_name&limit=1`;
+            const userResp = await fetch(userUrl, { method: "GET", headers: getSupabaseHeaders() });
+            let fromName = "Someone";
+            if (userResp.ok) {
+              const userData = await userResp.json();
+              fromName = userData[0]?.display_name || "Someone";
+            }
+
+            const notifId = `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            const notifRow = {
+              id: notifId,
+              user_id: postOwnerId,
+              type: "post_comment",
+              from_user_id: input.userId,
+              post_id: input.postId,
+              message: `${fromName} commented on your post`,
+              read: false,
+              created_at: Date.now(),
+            };
+
+            fetch(getSupabaseRestUrl("notifications"), {
+              method: "POST",
+              headers: getSupabaseHeaders(),
+              body: JSON.stringify(notifRow),
+            }).catch((err) => console.error("[POSTS] Comment notification insert error:", err));
+
+            const ownerUrl = `${getSupabaseRestUrl("users")}?id=eq.${encodeURIComponent(postOwnerId)}&select=push_token&limit=1`;
+            fetch(ownerUrl, { method: "GET", headers: getSupabaseHeaders() })
+              .then(async (ownerResp) => {
+                if (!ownerResp.ok) return;
+                const ownerData = await ownerResp.json();
+                const pushToken = ownerData[0]?.push_token;
+                if (!pushToken) return;
+
+                await fetch(EXPO_PUSH_URL, {
+                  method: "POST",
+                  headers: {
+                    Accept: "application/json",
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify({
+                    to: pushToken,
+                    title: "💬 New Comment",
+                    body: `${fromName} commented on your post`,
+                    sound: "default",
+                    data: { type: "post_comment", fromUserId: input.userId, postId: input.postId },
+                    channelId: "default",
+                    priority: "high",
+                  }),
+                });
+              })
+              .catch((err) => console.error("[POSTS] Comment push notification error:", err));
+          }
+        }
+
+        console.log("[POSTS] Comment created:", id);
+        return { success: true, commentId: id };
+      } catch (error) {
+        console.error("[POSTS] Add comment error:", error);
+        return { success: false, error: "Network error" };
+      }
+    }),
+
+  deleteComment: publicProcedure
+    .input(
+      z.object({
+        commentId: z.string(),
+        userId: z.string(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      console.log("[POSTS] Deleting comment:", input.commentId);
+      if (!isDbConfigured()) return { success: false, error: "Database not configured" };
+
+      try {
+        const url = `${getSupabaseRestUrl("post_comments")}?id=eq.${encodeURIComponent(input.commentId)}&user_id=eq.${encodeURIComponent(input.userId)}`;
+        const resp = await fetch(url, { method: "DELETE", headers: getSupabaseHeaders() });
+
+        if (!resp.ok) {
+          const err = await resp.text();
+          console.error("[POSTS] Comment delete failed:", err);
+          return { success: false, error: "Failed to delete comment" };
+        }
+
+        console.log("[POSTS] Comment deleted");
+        return { success: true };
+      } catch (error) {
+        console.error("[POSTS] Delete comment error:", error);
+        return { success: false, error: "Network error" };
+      }
+    }),
+
+  getCommentCount: publicProcedure
+    .input(
+      z.object({
+        postIds: z.array(z.string()),
+      })
+    )
+    .query(async ({ input }) => {
+      if (!isDbConfigured() || input.postIds.length === 0) return {};
+
+      try {
+        const postIdFilter = input.postIds.map((id) => `"${id}"`).join(",");
+        const url = `${getSupabaseRestUrl("post_comments")}?post_id=in.(${postIdFilter})&select=post_id`;
+        const resp = await fetch(url, { method: "GET", headers: getSupabaseHeaders() });
+        if (!resp.ok) return {};
+
+        const rows: { post_id: string }[] = await resp.json();
+        const counts: Record<string, number> = {};
+        for (const row of rows) {
+          counts[row.post_id] = (counts[row.post_id] || 0) + 1;
+        }
+        return counts;
+      } catch (error) {
+        console.error("[POSTS] Comment count error:", error);
+        return {};
+      }
+    }),
+
   deletePost: publicProcedure
     .input(
       z.object({
@@ -656,6 +872,9 @@ export const postsRouter = createTRPCRouter({
       try {
         const revsUrl = `${getSupabaseRestUrl("post_revs")}?post_id=eq.${encodeURIComponent(input.postId)}`;
         await fetch(revsUrl, { method: "DELETE", headers: getSupabaseHeaders() });
+
+        const commentsUrl = `${getSupabaseRestUrl("post_comments")}?post_id=eq.${encodeURIComponent(input.postId)}`;
+        await fetch(commentsUrl, { method: "DELETE", headers: getSupabaseHeaders() });
 
         const notifsUrl = `${getSupabaseRestUrl("notifications")}?post_id=eq.${encodeURIComponent(input.postId)}`;
         await fetch(notifsUrl, { method: "DELETE", headers: getSupabaseHeaders() });

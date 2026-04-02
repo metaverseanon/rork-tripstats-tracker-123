@@ -13,7 +13,7 @@ import {
   Animated,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { Navigation, Clock, MapPin, Search, X, UserPlus, Car, Zap, Users, Plus, Bell, Gauge, Compass } from 'lucide-react-native';
+import { Navigation, Clock, MapPin, Search, X, UserPlus, Car, Zap, Users, Plus, Bell, Gauge, Compass, MessageCircle } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useSettings } from '@/providers/SettingsProvider';
@@ -21,6 +21,7 @@ import { useUser } from '@/providers/UserProvider';
 import { trpc } from '@/lib/trpc';
 import { ThemeColors } from '@/constants/colors';
 import AuthGate from '@/components/AuthGate';
+import CommentsModal from '@/components/CommentsModal';
 
 interface FeedItem {
   id: string;
@@ -100,6 +101,7 @@ export default function FeedScreen() {
   const [showAuthGate, setShowAuthGate] = useState(false);
   const [authGateFeature, setAuthGateFeature] = useState('');
   const [activeTab, setActiveTab] = useState<FeedTab>('drives');
+  const [commentsPostId, setCommentsPostId] = useState<string | null>(null);
   const tabIndicatorAnim = useRef(new Animated.Value(0)).current;
 
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -134,6 +136,19 @@ export default function FeedScreen() {
     { userId: user?.id || '' },
     { enabled: !!user?.id }
   );
+
+  const postIds = useMemo(() => {
+    const feedPostIds = (postsQuery.data ?? []).map((p) => p.id);
+    const discoverPostIds = (discoverPostsQuery.data ?? []).map((p) => p.id);
+    return [...new Set([...feedPostIds, ...discoverPostIds])];
+  }, [postsQuery.data, discoverPostsQuery.data]);
+
+  const commentCountsQuery = trpc.posts.getCommentCount.useQuery(
+    { postIds },
+    { enabled: postIds.length > 0 }
+  );
+
+  const commentCounts = useMemo(() => commentCountsQuery.data ?? {}, [commentCountsQuery.data]);
 
   const unreadCountQuery = trpc.posts.getUnreadNotificationCount.useQuery(
     { userId: user?.id || '' },
@@ -269,6 +284,16 @@ export default function FeedScreen() {
       return;
     }
     action();
+  }, [user?.id]);
+
+  const handleOpenComments = useCallback((postId: string) => {
+    if (!user?.id) {
+      setAuthGateFeature('comment on posts and interact with drivers');
+      setShowAuthGate(true);
+      return;
+    }
+    if (Platform.OS !== 'web') void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setCommentsPostId(postId);
   }, [user?.id]);
 
   const handleRevPress = useCallback((postId: string, isRevved: boolean) => {
@@ -527,10 +552,21 @@ export default function FeedScreen() {
               {item.revCount === 1 ? 'rev' : 'revs'}
             </Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.commentButton}
+            onPress={() => handleOpenComments(item.id)}
+            activeOpacity={0.7}
+            testID={`comment-button-${item.id}`}
+          >
+            <MessageCircle size={16} color={colors.textLight} />
+            <Text style={styles.commentCount}>
+              {commentCounts[item.id] || 0}
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
     );
-  }, [styles, colors, handleUserPress, handleRevPress, handleFollowFromDiscover, user?.id]);
+  }, [styles, colors, handleUserPress, handleRevPress, handleOpenComments, handleFollowFromDiscover, user?.id, commentCounts]);
 
   const renderDriveItem = useCallback(({ item }: { item: FeedItem }) => {
     return renderActivityItem(item);
@@ -829,6 +865,16 @@ export default function FeedScreen() {
       >
         <Plus size={26} color="#FFFFFF" />
       </TouchableOpacity>
+
+      {commentsPostId && (
+        <CommentsModal
+          visible={!!commentsPostId}
+          onClose={() => setCommentsPostId(null)}
+          postId={commentsPostId}
+          userId={user?.id || ''}
+          colors={colors}
+        />
+      )}
 
       <AuthGate
         visible={showAuthGate}
@@ -1211,6 +1257,20 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   revLabelActive: {
     color: colors.accent,
+  },
+  commentButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 24,
+    backgroundColor: colors.background,
+  },
+  commentCount: {
+    fontSize: 14,
+    fontFamily: 'Orbitron_600SemiBold',
+    color: colors.textLight,
   },
   followBadge: {
     flexDirection: 'row',
