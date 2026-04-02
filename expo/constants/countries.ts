@@ -146,7 +146,7 @@ export const COUNTRIES: Country[] = [
   { code: 'PL', name: 'Poland', flag: '🇵🇱', cities: ['Warsaw', 'Kraków', 'Łódź', 'Wrocław', 'Poznań', 'Gdańsk', 'Szczecin', 'Katowice'] },
   { code: 'PT', name: 'Portugal', flag: '🇵🇹', cities: ['Lisbon', 'Porto', 'Amadora', 'Braga', 'Setúbal', 'Coimbra', 'Faro'] },
   { code: 'QA', name: 'Qatar', flag: '🇶🇦', cities: ['Doha', 'Al Rayyan', 'Al Wakrah', 'Al Khor', 'Umm Salal'] },
-  { code: 'RO', name: 'Romania', flag: '🇷🇴', cities: ['Bucharest', 'Cluj-Napoca', 'Timișoara', 'Iași', 'Constanța', 'Craiova', 'Brașov'] },
+  { code: 'RO', name: 'Romania', flag: '🇷🇴', cities: ['Bucharest', 'Cluj-Napoca', 'Timișoara', 'Iași', 'Constanța', 'Craiova', 'Brașov', 'Sibiu', 'Oradea', 'Galați', 'Arad', 'Pitești', 'Ploiești', 'Târgu Mureș', 'Baia Mare', 'Buzău', 'Suceava', 'Satu Mare', 'Botoșani', 'Râmnicu Vâlcea', 'Drobeta-Turnu Severin', 'Piatra Neamț', 'Focșani', 'Bistrița', 'Reșița', 'Tulcea', 'Slatina', 'Mediaș', 'Slobozia', 'Giurgiu', 'Deva', 'Hunedoara', 'Lugoj', 'Mangalia', 'Alba Iulia', 'Câmpina', 'Câmpulung', 'Curtea de Argeș', 'Petroșani', 'Sighetul Marmației', 'Zalău', 'Sfântu Gheorghe', 'Miercurea Ciuc', 'Odorheiu Secuiesc', 'Turda', 'Câmpia Turzii', 'Reghin', 'Făgăraș', 'Codlea', 'Săcele', 'Năvodari', 'Eforie', 'Mamaia', 'Sinaia', 'Predeal', 'Poiana Brașov'] },
   { code: 'RU', name: 'Russia', flag: '🇷🇺', cities: ['Moscow', 'Saint Petersburg', 'Novosibirsk', 'Yekaterinburg', 'Kazan', 'Nizhny Novgorod', 'Chelyabinsk', 'Samara', 'Sochi'] },
   { code: 'RW', name: 'Rwanda', flag: '🇷🇼', cities: ['Kigali', 'Butare', 'Gitarama', 'Ruhengeri', 'Gisenyi'] },
   { code: 'KN', name: 'Saint Kitts and Nevis', flag: '🇰🇳', cities: ['Basseterre', 'Charlestown', 'Sandy Point Town', 'Dieppe Bay Town'] },
