@@ -143,9 +143,9 @@ function CommentsModal({ visible, onClose, postId, userId, colors }: CommentsMod
       onRequestClose={onClose}
     >
       <KeyboardAvoidingView
-        style={[styles.container, { paddingBottom: insets.bottom }]}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={0}
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
         <View style={styles.handleBar}>
           <View style={styles.handle} />
@@ -184,7 +184,7 @@ function CommentsModal({ visible, onClose, postId, userId, colors }: CommentsMod
           />
         )}
 
-        <View style={styles.inputContainer}>
+        <View style={[styles.inputContainer, { paddingBottom: Math.max(insets.bottom, 10) }]}>
           <TextInput
             ref={inputRef}
             style={styles.input}
