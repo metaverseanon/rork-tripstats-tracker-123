@@ -8,7 +8,6 @@ import {
   FlatList,
   TextInput,
   ActivityIndicator,
-  KeyboardAvoidingView,
   Platform,
   Image,
   Animated,
@@ -45,9 +44,25 @@ function formatTimeAgo(timestamp: number): string {
 function CommentsModal({ visible, onClose, postId, userId, colors }: CommentsModalProps) {
   const insets = useSafeAreaInsets();
   const [commentText, setCommentText] = useState('');
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const inputRef = useRef<TextInput>(null);
   const slideAnim = useRef(new Animated.Value(0)).current;
   const utils = trpc.useUtils();
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => setKeyboardHeight(e.endCoordinates.height)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardHeight(0)
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -142,11 +157,7 @@ function CommentsModal({ visible, onClose, postId, userId, colors }: CommentsMod
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <KeyboardAvoidingView
-        style={styles.container}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
-      >
+      <View style={styles.container}>
         <View style={styles.handleBar}>
           <View style={styles.handle} />
         </View>
@@ -184,7 +195,7 @@ function CommentsModal({ visible, onClose, postId, userId, colors }: CommentsMod
           />
         )}
 
-        <View style={[styles.inputContainer, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+        <View style={[styles.inputContainer, { paddingBottom: keyboardHeight > 0 ? 10 : Math.max(insets.bottom, 10), marginBottom: keyboardHeight > 0 ? keyboardHeight : 0 }]}>
           <TextInput
             ref={inputRef}
             style={styles.input}
@@ -213,7 +224,7 @@ function CommentsModal({ visible, onClose, postId, userId, colors }: CommentsMod
             )}
           </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
