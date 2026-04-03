@@ -36,6 +36,13 @@ interface AdditionalCar {
   picture?: string;
 }
 
+const isValidImageUri = (uri: string | undefined | null): boolean => {
+  if (!uri || typeof uri !== 'string') return false;
+  const trimmed = uri.trim();
+  if (trimmed.length === 0) return false;
+  return trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('file://') || trimmed.startsWith('data:image/');
+};
+
 export default function ProfileScreen() {
   const { user, isAuthenticated, signUp, signIn, signOut, updateProfile, updateCar, updateLocation, addCar, removeCar, setPrimaryCar, signInWithGoogle, syncImagesToBackend } = useUser();
   const { syncUnsyncedTrips } = useTrips();
@@ -827,7 +834,7 @@ export default function ProfileScreen() {
       <View style={styles.avatarSection}>
         <TouchableOpacity style={styles.avatarContainer} onPress={pickProfilePicture}>
           <View style={styles.avatarRing}>
-            {profilePicture && !profilePicLoadFailed ? (
+            {isValidImageUri(profilePicture) && !profilePicLoadFailed ? (
               <Image 
                 source={{ uri: profilePicture }} 
                 style={styles.avatarImage}
@@ -997,7 +1004,7 @@ export default function ProfileScreen() {
         {primaryCar && (
           <View style={styles.primaryCarCard}>
             <TouchableOpacity activeOpacity={0.8} onPress={pickCarPicture}>
-              {primaryCar.picture && !carPicLoadFailed ? (
+              {isValidImageUri(primaryCar.picture) && !carPicLoadFailed ? (
                 <Image
                   source={{ uri: primaryCar.picture }}
                   style={styles.primaryCarImage}
@@ -1009,9 +1016,7 @@ export default function ProfileScreen() {
               ) : (
                 <View style={styles.primaryCarImagePlaceholder}>
                   <ImageIcon color="rgba(255,255,255,0.4)" size={40} />
-                  <Text style={styles.primaryCarPlaceholderText}>
-                    {carPicLoadFailed ? 'Photo failed to load. Tap to replace' : 'Tap to add photo'}
-                  </Text>
+                  <Text style={styles.primaryCarPlaceholderText}>Tap to add photo</Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -1032,7 +1037,7 @@ export default function ProfileScreen() {
 
         {!primaryCar && (
           <TouchableOpacity style={styles.carImagePicker} onPress={pickCarPicture}>
-            {carPicture && !carPicLoadFailed ? (
+            {isValidImageUri(carPicture) && !carPicLoadFailed ? (
               <Image
                 source={{ uri: carPicture }}
                 style={styles.primaryCarImage}
@@ -1044,9 +1049,7 @@ export default function ProfileScreen() {
             ) : (
               <View style={styles.carImagePlaceholder}>
                 <ImageIcon color={colors.textLight} size={32} />
-                <Text style={styles.carImagePlaceholderText}>
-                  {carPicLoadFailed ? 'Photo failed to load. Tap to replace' : 'Tap to add car photo'}
-                </Text>
+                <Text style={styles.carImagePlaceholderText}>Tap to add car photo</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -1112,7 +1115,7 @@ export default function ProfileScreen() {
             activeOpacity={0.7}
           >
             <View style={styles.secondaryCarLeft}>
-              {car.picture && !failedCarPicIds.has(car.id) ? (
+              {isValidImageUri(car.picture) && !failedCarPicIds.has(car.id) ? (
                 <Image
                   source={{ uri: car.picture }}
                   style={styles.secondaryCarThumb}
@@ -1150,7 +1153,7 @@ export default function ProfileScreen() {
         {additionalCars.map((car, index) => (
           <View key={car.id || `add-car-${index}`} style={styles.secondaryCarRow}>
             <View style={styles.secondaryCarLeft}>
-              {car.picture ? (
+              {isValidImageUri(car.picture) ? (
                 <Image source={{ uri: car.picture }} style={styles.secondaryCarThumb} />
               ) : (
                 <View style={styles.secondaryCarThumbPlaceholder}>
@@ -1174,7 +1177,7 @@ export default function ProfileScreen() {
         {showAddCarForm ? (
           <View style={styles.addCarForm}>
             <TouchableOpacity style={styles.carImagePickerSmall} onPress={pickNewCarPicture}>
-              {newCarPicture ? (
+              {isValidImageUri(newCarPicture) ? (
                 <Image source={{ uri: newCarPicture }} style={styles.carImageSmall} />
               ) : (
                 <View style={styles.carImagePlaceholderSmall}>
@@ -1290,7 +1293,7 @@ export default function ProfileScreen() {
         {authMode === 'signup' ? (
           <TouchableOpacity style={styles.avatarContainer} onPress={pickProfilePicture}>
             <View style={styles.avatarRing}>
-              {profilePicture && !profilePicLoadFailed ? (
+              {isValidImageUri(profilePicture) && !profilePicLoadFailed ? (
                 <Image 
                   source={{ uri: profilePicture }} 
                   style={styles.avatarImage}
@@ -1511,7 +1514,7 @@ export default function ProfileScreen() {
           {renderSectionHeader('PRIMARY CAR')}
           <View style={styles.sectionContent}>
             <TouchableOpacity style={styles.carImagePicker} onPress={pickCarPicture}>
-              {carPicture ? (
+              {isValidImageUri(carPicture) ? (
                 <Image source={{ uri: carPicture }} style={styles.primaryCarImage} />
               ) : (
                 <View style={styles.carImagePlaceholder}>
@@ -1576,7 +1579,7 @@ export default function ProfileScreen() {
             {additionalCars.map((car, index) => (
               <View key={car.id || `add-car-${index}`} style={styles.secondaryCarRow}>
                 <View style={styles.secondaryCarLeft}>
-                  {car.picture ? (
+                  {isValidImageUri(car.picture) ? (
                     <Image source={{ uri: car.picture }} style={styles.secondaryCarThumb} />
                   ) : (
                     <View style={styles.secondaryCarThumbPlaceholder}>
