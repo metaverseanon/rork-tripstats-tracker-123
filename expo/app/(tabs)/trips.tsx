@@ -6,6 +6,7 @@ import { useMemo } from 'react';
 import { useTrips } from '@/providers/TripProvider';
 import { useSettings } from '@/providers/SettingsProvider';
 import { ThemeColors } from '@/constants/colors';
+import AnimatedCard from '@/components/AnimatedCard';
 
 export default function RecentScreen() {
   const { trips } = useTrips();
@@ -167,6 +168,7 @@ export default function RecentScreen() {
           </View>
         </View>
 
+        <AnimatedCard index={4} slideDistance={18} duration={300}>
         <View style={styles.smallCardsRow}>
           <View style={styles.smallCard}>
             <View style={styles.smallCardValueRow}>
