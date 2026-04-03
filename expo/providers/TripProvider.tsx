@@ -1104,6 +1104,9 @@ export const [TripProvider, useTrips] = createContextHook(() => {
 
   const trackAccelerationTimes = (currentSpeedKmh: number, currentTime: number) => {
     const STANDING_THRESHOLD = 5;
+    const MIN_0_TO_100_TIME = 1.5;
+    const MIN_0_TO_200_TIME = 4.0;
+    const MIN_0_TO_300_TIME = 8.0;
 
     if (currentSpeedKmh < STANDING_THRESHOLD) {
       accelStartTime.current = currentTime;
@@ -1113,30 +1116,49 @@ export const [TripProvider, useTrips] = createContextHook(() => {
     }
 
     if (accelStartTime.current === null) {
+      if (currentSpeedKmh >= STANDING_THRESHOLD) {
+        console.log('[ACCEL] Drive started at high speed (' + currentSpeedKmh.toFixed(1) + ' km/h), skipping acceleration tracking until standstill');
+        return;
+      }
       accelStartTime.current = currentTime;
     }
 
     if (!reached100.current && currentSpeedKmh >= 100) {
       reached100.current = true;
       const timeSeconds = (currentTime - accelStartTime.current) / 1000;
-      if (time0to100.current === null || timeSeconds < time0to100.current) {
-        time0to100.current = timeSeconds;
+      if (timeSeconds >= MIN_0_TO_100_TIME) {
+        if (time0to100.current === null || timeSeconds < time0to100.current) {
+          time0to100.current = timeSeconds;
+          console.log('[ACCEL] Valid 0-100 time recorded: ' + timeSeconds.toFixed(2) + 's');
+        }
+      } else {
+        console.log('[ACCEL] Rejected 0-100 time ' + timeSeconds.toFixed(2) + 's (below minimum ' + MIN_0_TO_100_TIME + 's)');
       }
     }
 
     if (!reached200.current && currentSpeedKmh >= 200) {
       reached200.current = true;
       const timeSeconds = (currentTime - accelStartTime.current) / 1000;
-      if (time0to200.current === null || timeSeconds < time0to200.current) {
-        time0to200.current = timeSeconds;
+      if (timeSeconds >= MIN_0_TO_200_TIME) {
+        if (time0to200.current === null || timeSeconds < time0to200.current) {
+          time0to200.current = timeSeconds;
+          console.log('[ACCEL] Valid 0-200 time recorded: ' + timeSeconds.toFixed(2) + 's');
+        }
+      } else {
+        console.log('[ACCEL] Rejected 0-200 time ' + timeSeconds.toFixed(2) + 's (below minimum ' + MIN_0_TO_200_TIME + 's)');
       }
     }
 
     if (!reached300.current && currentSpeedKmh >= 300) {
       reached300.current = true;
       const timeSeconds = (currentTime - accelStartTime.current) / 1000;
-      if (time0to300.current === null || timeSeconds < time0to300.current) {
-        time0to300.current = timeSeconds;
+      if (timeSeconds >= MIN_0_TO_300_TIME) {
+        if (time0to300.current === null || timeSeconds < time0to300.current) {
+          time0to300.current = timeSeconds;
+          console.log('[ACCEL] Valid 0-300 time recorded: ' + timeSeconds.toFixed(2) + 's');
+        }
+      } else {
+        console.log('[ACCEL] Rejected 0-300 time ' + timeSeconds.toFixed(2) + 's (below minimum ' + MIN_0_TO_300_TIME + 's)');
       }
     }
   };

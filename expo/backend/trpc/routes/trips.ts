@@ -231,7 +231,27 @@ interface SupabaseTripRow {
   updated_at?: string;
 }
 
+const MIN_VALID_0_TO_100 = 1.5;
+const MIN_VALID_0_TO_200 = 4.0;
+const MIN_VALID_0_TO_300 = 8.0;
+const MAX_VALID_TOP_SPEED = 500;
+const MAX_VALID_ACCELERATION = 30;
+const MAX_VALID_G_FORCE = 4.0;
+
+function sanitizeAccelTime(value: number | undefined, minValid: number, label: string): number | undefined {
+  if (value === undefined || value <= 0) return undefined;
+  if (value < minValid) {
+    console.log(`[TRIP_SANITIZE] Rejected ${label}: ${value.toFixed(2)}s (below minimum ${minValid}s)`);
+    return undefined;
+  }
+  return value;
+}
+
 function tripToSupabaseRow(trip: SyncedTrip): SupabaseTripRow {
+  const sanitizedTopSpeed = trip.topSpeed > MAX_VALID_TOP_SPEED ? 0 : trip.topSpeed;
+  const sanitizedAcceleration = (trip.acceleration ?? 0) > MAX_VALID_ACCELERATION ? 0 : trip.acceleration;
+  const sanitizedGForce = (trip.maxGForce ?? 0) > MAX_VALID_G_FORCE ? 0 : trip.maxGForce;
+
   const row: SupabaseTripRow = {
     id: trip.id,
     user_id: trip.userId,
@@ -242,16 +262,16 @@ function tripToSupabaseRow(trip: SyncedTrip): SupabaseTripRow {
     distance: trip.distance,
     duration: trip.duration,
     avg_speed: trip.avgSpeed,
-    top_speed: trip.topSpeed,
+    top_speed: sanitizedTopSpeed,
     corners: trip.corners,
     car_model: trip.carModel,
-    acceleration: trip.acceleration,
-    max_g_force: trip.maxGForce,
+    acceleration: sanitizedAcceleration,
+    max_g_force: sanitizedGForce,
     country: trip.location?.country,
     city: trip.location?.city,
-    time_0_to_100: trip.time0to100,
-    time_0_to_200: trip.time0to200,
-    time_0_to_300: trip.time0to300,
+    time_0_to_100: sanitizeAccelTime(trip.time0to100, MIN_VALID_0_TO_100, '0-100'),
+    time_0_to_200: sanitizeAccelTime(trip.time0to200, MIN_VALID_0_TO_200, '0-200'),
+    time_0_to_300: sanitizeAccelTime(trip.time0to300, MIN_VALID_0_TO_300, '0-300'),
   };
   if (trip.routePoints && trip.routePoints.length > 0) {
     row.route_points = trip.routePoints;
@@ -661,12 +681,12 @@ export const tripsRouter = createTRPCRouter({
           case "zeroToHundred":
             orderBy = "time_0_to_100";
             ascending = true;
-            filter = "time_0_to_100=gt.0";
+            filter = `time_0_to_100=gte.${MIN_VALID_0_TO_100}`;
             break;
           case "zeroToTwoHundred":
             orderBy = "time_0_to_200";
             ascending = true;
-            filter = "time_0_to_200=gt.0";
+            filter = `time_0_to_200=gte.${MIN_VALID_0_TO_200}`;
             break;
         }
 
