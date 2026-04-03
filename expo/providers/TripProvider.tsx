@@ -175,6 +175,9 @@ export const [TripProvider, useTrips] = createContextHook(() => {
   const time0to100 = useRef<number | null>(null);
   const time0to200 = useRef<number | null>(null);
   const time0to300 = useRef<number | null>(null);
+  const driveStartTimestamp = useRef<number>(0);
+  const standstillConfirmed = useRef<boolean>(false);
+  const consecutiveLowSpeedReadings = useRef<number>(0);
   const detectedCameraIds = useRef<Set<string>>(new Set());
   const warnedCameraIds = useRef<Set<string>>(new Set());
   const speedCamerasCount = useRef<number>(0);
@@ -1073,11 +1076,20 @@ export const [TripProvider, useTrips] = createContextHook(() => {
     return { country: 'Unknown', city: 'Unknown' };
   };
 
+  const WARMUP_PERIOD_MS = 3000;
+
   const calculateAcceleration = (currentSpeedKmh: number, currentTime: number): number => {
     if (previousSpeedTime.current === 0) {
       previousSpeed.current = currentSpeedKmh;
       previousSpeedTime.current = currentTime;
       console.log('[ACCEL] First reading baseline set at', currentSpeedKmh.toFixed(1), 'km/h, skipping G-force calc');
+      return 0;
+    }
+
+    if (driveStartTimestamp.current > 0 && (currentTime - driveStartTimestamp.current) < WARMUP_PERIOD_MS) {
+      previousSpeed.current = currentSpeedKmh;
+      previousSpeedTime.current = currentTime;
+      console.log('[ACCEL] Warmup period active (' + ((currentTime - driveStartTimestamp.current) / 1000).toFixed(1) + 's), skipping acceleration calc');
       return 0;
     }
 
@@ -1116,22 +1128,39 @@ export const [TripProvider, useTrips] = createContextHook(() => {
 
   const trackAccelerationTimes = (currentSpeedKmh: number, currentTime: number) => {
     const STANDING_THRESHOLD = 5;
-    const MIN_0_TO_100_TIME = 1.5;
-    const MIN_0_TO_200_TIME = 4.0;
-    const MIN_0_TO_300_TIME = 8.0;
+    const SUSTAINED_STANDSTILL_READINGS = 3;
+    const MIN_0_TO_100_TIME = 2.0;
+    const MIN_0_TO_200_TIME = 5.0;
+    const MIN_0_TO_300_TIME = 10.0;
+
+    if (driveStartTimestamp.current > 0 && (currentTime - driveStartTimestamp.current) < WARMUP_PERIOD_MS) {
+      return;
+    }
 
     if (currentSpeedKmh < STANDING_THRESHOLD) {
-      accelStartTime.current = currentTime;
-      reached100.current = false;
-      reached200.current = false;
-      reached300.current = false;
+      consecutiveLowSpeedReadings.current += 1;
+      if (consecutiveLowSpeedReadings.current >= SUSTAINED_STANDSTILL_READINGS) {
+        if (!standstillConfirmed.current) {
+          console.log('[ACCEL] Sustained standstill confirmed after ' + consecutiveLowSpeedReadings.current + ' readings');
+        }
+        standstillConfirmed.current = true;
+        accelStartTime.current = currentTime;
+        reached100.current = false;
+        reached200.current = false;
+        reached300.current = false;
+      }
+    } else {
+      consecutiveLowSpeedReadings.current = 0;
+    }
+
+    if (!standstillConfirmed.current) {
+      if (accelStartTime.current === null) {
+        console.log('[ACCEL] Drive started at high speed (' + currentSpeedKmh.toFixed(1) + ' km/h), skipping acceleration tracking until sustained standstill');
+      }
+      return;
     }
 
     if (accelStartTime.current === null) {
-      if (currentSpeedKmh >= STANDING_THRESHOLD) {
-        console.log('[ACCEL] Drive started at high speed (' + currentSpeedKmh.toFixed(1) + ' km/h), skipping acceleration tracking until standstill');
-        return;
-      }
       accelStartTime.current = currentTime;
     }
 
@@ -1300,6 +1329,9 @@ export const [TripProvider, useTrips] = createContextHook(() => {
       time0to100.current = null;
       time0to200.current = null;
       time0to300.current = null;
+      driveStartTimestamp.current = Date.now();
+      standstillConfirmed.current = false;
+      consecutiveLowSpeedReadings.current = 0;
       detectedCameraIds.current = new Set();
       warnedCameraIds.current = new Set();
       speedCamerasCount.current = 0;
@@ -1516,6 +1548,9 @@ export const [TripProvider, useTrips] = createContextHook(() => {
     time0to100.current = null;
     time0to200.current = null;
     time0to300.current = null;
+    driveStartTimestamp.current = 0;
+    standstillConfirmed.current = false;
+    consecutiveLowSpeedReadings.current = 0;
     detectedCameraIds.current = new Set();
     warnedCameraIds.current = new Set();
     speedCamerasCount.current = 0;
@@ -1581,6 +1616,9 @@ export const [TripProvider, useTrips] = createContextHook(() => {
     time0to100.current = null;
     time0to200.current = null;
     time0to300.current = null;
+    driveStartTimestamp.current = 0;
+    standstillConfirmed.current = false;
+    consecutiveLowSpeedReadings.current = 0;
     detectedCameraIds.current = new Set();
     warnedCameraIds.current = new Set();
     speedCamerasCount.current = 0;

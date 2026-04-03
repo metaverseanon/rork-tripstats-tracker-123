@@ -962,7 +962,7 @@ export default function LeaderboardScreen() {
         break;
       case 'acceleration':
         sorted = [...allTrips]
-          .filter((t) => (t.acceleration ?? 0) > 0)
+          .filter((t) => (t.acceleration ?? 0) > 0 && (t.acceleration ?? 0) <= 20)
           .sort((a, b) => (b.acceleration ?? 0) - (a.acceleration ?? 0));
         break;
       case 'gForce':
@@ -972,12 +972,12 @@ export default function LeaderboardScreen() {
         break;
       case 'zeroToHundred':
         sorted = [...allTrips]
-          .filter((t) => (t.time0to100 ?? 0) > 0)
+          .filter((t) => (t.time0to100 ?? 0) >= 2.0)
           .sort((a, b) => (a.time0to100 ?? Infinity) - (b.time0to100 ?? Infinity));
         break;
       case 'zeroToTwoHundred':
         sorted = [...allTrips]
-          .filter((t) => (t.time0to200 ?? 0) > 0)
+          .filter((t) => (t.time0to200 ?? 0) >= 5.0)
           .sort((a, b) => (a.time0to200 ?? Infinity) - (b.time0to200 ?? Infinity));
         break;
     }
