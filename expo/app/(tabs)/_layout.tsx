@@ -1,7 +1,7 @@
 import { Tabs } from "expo-router";
 import React from "react";
 import { Platform } from "react-native";
-import { Play, Clock, Trophy, BarChart3, Settings, Rss } from "lucide-react-native";
+import { Play, Trophy, BarChart3, Settings, Rss } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import { useSettings } from "@/providers/SettingsProvider";
 
@@ -33,14 +33,6 @@ export default function TabLayout() {
         options={{
           title: "Track",
           tabBarIcon: ({ color, size }) => <Play size={size} color={color} />,
-        }}
-        listeners={{ tabPress: handleTabPress }}
-      />
-      <Tabs.Screen
-        name="trips"
-        options={{
-          title: "Recent",
-          tabBarIcon: ({ color, size }) => <Clock size={size} color={color} />,
         }}
         listeners={{ tabPress: handleTabPress }}
       />
