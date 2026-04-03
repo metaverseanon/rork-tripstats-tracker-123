@@ -967,7 +967,7 @@ export default function LeaderboardScreen() {
         break;
       case 'gForce':
         sorted = [...allTrips]
-          .filter((t) => (t.maxGForce ?? 0) > 0)
+          .filter((t) => (t.maxGForce ?? 0) > 0 && (t.maxGForce ?? 0) <= 4.0)
           .sort((a, b) => (b.maxGForce ?? 0) - (a.maxGForce ?? 0));
         break;
       case 'zeroToHundred':

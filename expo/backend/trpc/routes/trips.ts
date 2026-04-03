@@ -676,7 +676,7 @@ export const tripsRouter = createTRPCRouter({
             break;
           case "gForce":
             orderBy = "max_g_force";
-            filter = "max_g_force=gt.0";
+            filter = `max_g_force=gt.0&max_g_force=lte.${MAX_VALID_G_FORCE}`;
             break;
           case "zeroToHundred":
             orderBy = "time_0_to_100";
