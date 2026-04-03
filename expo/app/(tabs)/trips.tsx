@@ -183,7 +183,9 @@ export default function RecentScreen() {
             <Text style={styles.smallCardLabel}>{getAccelerationShortLabel('0-200').toUpperCase()}</Text>
           </View>
         </View>
+        </AnimatedCard>
 
+        <AnimatedCard index={5} slideDistance={18} duration={300}>
         <View style={styles.smallCardsRow}>
           <View style={styles.smallCard}>
             <View style={styles.smallCardValueRow}>
@@ -199,7 +201,9 @@ export default function RecentScreen() {
             <Text style={styles.smallCardLabel}>SPEED CAMERAS</Text>
           </View>
         </View>
+        </AnimatedCard>
 
+        <AnimatedCard index={6} slideDistance={18} duration={300}>
         <View style={styles.smallCardsRow}>
           <View style={styles.smallCard}>
             <View style={styles.smallCardValueRow}>
@@ -213,6 +217,7 @@ export default function RecentScreen() {
             <Text style={styles.smallCardLabel}>CORNERS TAKEN</Text>
           </View>
         </View>
+        </AnimatedCard>
 
         {routeCoordinates.length >= 2 && mapRegion && (
           <>
@@ -248,6 +253,7 @@ export default function RecentScreen() {
           </>
         )}
 
+        <AnimatedCard index={7} slideDistance={18} duration={300}>
         <View style={styles.consistencyCard}>
           <View style={styles.consistencyHeader}>
             <View style={styles.consistencyDot} />
@@ -272,6 +278,7 @@ export default function RecentScreen() {
             </View>
           </View>
         </View>
+        </AnimatedCard>
 
         <View style={styles.bottomSpacer} />
       </ScrollView>

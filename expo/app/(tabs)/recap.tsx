@@ -24,6 +24,7 @@ import {
 } from 'lucide-react-native';
 import { useTrips } from '@/providers/TripProvider';
 import { useSettings } from '@/providers/SettingsProvider';
+import AnimatedCard from '@/components/AnimatedCard';
 import { TripStats } from '@/types/trip';
 import { ThemeColors } from '@/constants/colors';
 
@@ -234,6 +235,7 @@ export default function RecapScreen() {
         ))}
       </View>
 
+      <AnimatedCard index={0} slideDistance={24} duration={400}>
       <View style={styles.highlightCard}>
         <View style={styles.highlightIconRow}>
           <View style={styles.highlightIcon}>
@@ -250,7 +252,9 @@ export default function RecapScreen() {
             : `This ${selectedPeriod.replace('ly', '')}`}
         </Text>
       </View>
+      </AnimatedCard>
 
+      <AnimatedCard index={1} slideDistance={20} duration={350}>
       <View style={styles.statsGrid}>
         <StatCard
           icon={<TrendingUp color={colors.accent} size={20} />}
@@ -320,8 +324,10 @@ export default function RecapScreen() {
           color="#F59E0B"
         />
       </View>
+      </AnimatedCard>
 
       {calculateStats.totalTrips > 0 && (
+        <AnimatedCard index={2} slideDistance={20} duration={350}>
         <View style={styles.driverTypeCard}>
           <View style={styles.driverTypeHeader}>
             {calculateStats.nightTrips > calculateStats.dayTrips ? (
@@ -380,6 +386,7 @@ export default function RecapScreen() {
             </View>
           </View>
         </View>
+        </AnimatedCard>
       )}
 
       {calculateStats.totalTrips === 0 && (

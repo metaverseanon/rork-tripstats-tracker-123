@@ -19,6 +19,7 @@ import * as Haptics from 'expo-haptics';
 import { useSettings } from '@/providers/SettingsProvider';
 import { useUser } from '@/providers/UserProvider';
 import { trpc } from '@/lib/trpc';
+import AnimatedCard from '@/components/AnimatedCard';
 import { ThemeColors } from '@/constants/colors';
 import AuthGate from '@/components/AuthGate';
 import CommentsModal from '@/components/CommentsModal';
@@ -373,10 +374,11 @@ export default function FeedScreen() {
     return combined;
   }, [discoverDrivesQuery.data, discoverPostsQuery.data]);
 
-  const renderActivityItem = useCallback((item: FeedItem, showFollowButton?: boolean) => {
+  const renderActivityItem = useCallback((item: FeedItem, showFollowButton?: boolean, animIndex?: number) => {
     const initial = item.userName?.[0]?.toUpperCase() || '?';
 
     return (
+      <AnimatedCard index={animIndex ?? 0} slideDistance={18} duration={300} delay={50}>
       <TouchableOpacity
         style={styles.feedCard}
         onPress={() => handleUserPress(item.userId)}
@@ -474,16 +476,18 @@ export default function FeedScreen() {
           </View>
         )}
       </TouchableOpacity>
+      </AnimatedCard>
     );
   }, [styles, colors, convertSpeed, convertDistance, getSpeedLabel, getDistanceLabel, handleUserPress, handleActivityRevPress, handleFollowFromDiscover, user?.id]);
 
-  const renderPostItem = useCallback((item: PostItem, showFollowButton?: boolean) => {
+  const renderPostItem = useCallback((item: PostItem, showFollowButton?: boolean, animIndex?: number) => {
     const initial = item.userName?.[0]?.toUpperCase() || '?';
     const carDisplay = item.userCarBrand
       ? `${item.userCarBrand}${item.userCarModel ? ` ${item.userCarModel}` : ''}`
       : null;
 
     return (
+      <AnimatedCard index={animIndex ?? 0} slideDistance={18} duration={300} delay={50}>
       <View style={styles.feedCard}>
         <TouchableOpacity
           style={styles.feedCardHeader}
@@ -565,22 +569,23 @@ export default function FeedScreen() {
           </TouchableOpacity>
         </View>
       </View>
+      </AnimatedCard>
     );
   }, [styles, colors, handleUserPress, handleRevPress, handleOpenComments, handleFollowFromDiscover, user?.id, commentCounts]);
 
-  const renderDriveItem = useCallback(({ item }: { item: FeedItem }) => {
-    return renderActivityItem(item);
+  const renderDriveItem = useCallback(({ item, index }: { item: FeedItem; index: number }) => {
+    return renderActivityItem(item, false, index);
   }, [renderActivityItem]);
 
-  const renderPostFeedItem = useCallback(({ item }: { item: PostItem }) => {
-    return renderPostItem(item);
+  const renderPostFeedItem = useCallback(({ item, index }: { item: PostItem; index: number }) => {
+    return renderPostItem(item, false, index);
   }, [renderPostItem]);
 
-  const renderDiscoverItem = useCallback(({ item }: { item: DiscoverItem }) => {
+  const renderDiscoverItem = useCallback(({ item, index }: { item: DiscoverItem; index: number }) => {
     if (item.kind === 'drive') {
-      return renderActivityItem(item.data, true);
+      return renderActivityItem(item.data, true, index);
     }
-    return renderPostItem(item.data, true);
+    return renderPostItem(item.data, true, index);
   }, [renderActivityItem, renderPostItem]);
 
   const renderSearchResult = useCallback(({ item }: { item: SearchUser }) => {

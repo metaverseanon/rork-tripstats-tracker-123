@@ -12,6 +12,7 @@ import { useTrips } from '@/providers/TripProvider';
 import { useSettings } from '@/providers/SettingsProvider';
 import { useUser } from '@/providers/UserProvider';
 import { useNotifications } from '@/providers/NotificationProvider';
+import AnimatedCard from '@/components/AnimatedCard';
 import { COUNTRIES } from '@/constants/countries';
 import { CAR_BRANDS, getModelsForBrand } from '@/constants/cars';
 import { LeaderboardCategory, LeaderboardFilters, TripStats } from '@/types/trip';
@@ -833,7 +834,8 @@ export default function LeaderboardScreen() {
     },
     {
       refetchInterval: 30000,
-      staleTime: 15000,
+      staleTime: 0,
+      refetchOnMount: 'always' as const,
       enabled: activeCategory !== 'challengesCompleted',
     }
   );
@@ -843,7 +845,8 @@ export default function LeaderboardScreen() {
     {
       enabled: activeCategory === 'challengesCompleted',
       refetchInterval: 30000,
-      staleTime: 15000,
+      staleTime: 0,
+      refetchOnMount: 'always' as const,
     }
   );
 
@@ -1615,29 +1618,33 @@ export default function LeaderboardScreen() {
 
               return (
                 <>
-                  <View style={styles.podiumContainer}>
-                    <View style={styles.podiumRow}>
-                      {second && (
-                        <View style={styles.podiumSide}>
-                          {renderPodiumUser(second, 2)}
+                  <AnimatedCard index={0} slideDistance={30} duration={400}>
+                    <View style={styles.podiumContainer}>
+                      <View style={styles.podiumRow}>
+                        {second && (
+                          <View style={styles.podiumSide}>
+                            {renderPodiumUser(second, 2)}
+                          </View>
+                        )}
+                        <View style={styles.podiumCenter}>
+                          {renderPodiumUser(first, 1)}
                         </View>
-                      )}
-                      <View style={styles.podiumCenter}>
-                        {renderPodiumUser(first, 1)}
+                        {third && (
+                          <View style={styles.podiumSide}>
+                            {renderPodiumUser(third, 3)}
+                          </View>
+                        )}
                       </View>
-                      {third && (
-                        <View style={styles.podiumSide}>
-                          {renderPodiumUser(third, 3)}
-                        </View>
-                      )}
                     </View>
-                  </View>
+                  </AnimatedCard>
 
                   {leaderboardData.length > 3 && (
-                    <View style={styles.risingHeader}>
-                      <Text style={styles.risingTitle}>Rising Competitors</Text>
-                      <Text style={styles.risingSubtitle}>GLOBAL TOP 10</Text>
-                    </View>
+                    <AnimatedCard index={1} slideDistance={20} duration={350}>
+                      <View style={styles.risingHeader}>
+                        <Text style={styles.risingTitle}>Rising Competitors</Text>
+                        <Text style={styles.risingSubtitle}>GLOBAL TOP 10</Text>
+                      </View>
+                    </AnimatedCard>
                   )}
                 </>
               );
@@ -1650,8 +1657,8 @@ export default function LeaderboardScreen() {
               const displayProfilePic = isCurrentUser ? (user?.profilePicture || trip.userProfilePicture) : trip.userProfilePicture;
 
               return (
+                <AnimatedCard key={trip.id || `trip-${rank}`} index={index + 2} slideDistance={20} duration={300}>
                 <TouchableOpacity
-                  key={trip.id || `trip-${rank}`}
                   style={[styles.competitorCard, isCurrentUser && styles.competitorCardActive]}
                   onPress={() => openTripDetail(trip)}
                   activeOpacity={0.7}
@@ -1739,6 +1746,7 @@ export default function LeaderboardScreen() {
                     )}
                   </View>
                 </TouchableOpacity>
+                </AnimatedCard>
               );
             })}
           </View>
