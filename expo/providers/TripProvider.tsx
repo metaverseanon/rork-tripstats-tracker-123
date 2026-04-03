@@ -1077,11 +1077,17 @@ export const [TripProvider, useTrips] = createContextHook(() => {
     if (previousSpeedTime.current === 0) {
       previousSpeed.current = currentSpeedKmh;
       previousSpeedTime.current = currentTime;
+      console.log('[ACCEL] First reading baseline set at', currentSpeedKmh.toFixed(1), 'km/h, skipping G-force calc');
       return 0;
     }
 
     const timeDiff = (currentTime - previousSpeedTime.current) / 1000;
-    if (timeDiff <= 0) return 0;
+    if (timeDiff <= 0 || timeDiff > 10) {
+      previousSpeed.current = currentSpeedKmh;
+      previousSpeedTime.current = currentTime;
+      console.log('[ACCEL] Time gap too small or large (' + timeDiff.toFixed(2) + 's), resetting baseline');
+      return 0;
+    }
 
     const speedDiffMs = (currentSpeedKmh - previousSpeed.current) / 3.6;
     const acceleration = speedDiffMs / timeDiff;
@@ -1090,12 +1096,18 @@ export const [TripProvider, useTrips] = createContextHook(() => {
     previousSpeedTime.current = currentTime;
 
     const absAcceleration = Math.abs(acceleration);
-    if (absAcceleration > maxAcceleration.current) {
-      maxAcceleration.current = absAcceleration;
+    const MAX_REASONABLE_ACCEL = 29.43;
+    const clampedAcceleration = Math.min(absAcceleration, MAX_REASONABLE_ACCEL);
+
+    if (clampedAcceleration > maxAcceleration.current) {
+      maxAcceleration.current = clampedAcceleration;
     }
 
-    const gForce = absAcceleration / 9.81;
+    const gForce = clampedAcceleration / 9.81;
     if (gForce > maxGForce.current) {
+      if (absAcceleration > MAX_REASONABLE_ACCEL) {
+        console.log('[ACCEL] G-force capped at 3.0G (raw was ' + (absAcceleration / 9.81).toFixed(2) + 'G, speed delta: ' + (currentSpeedKmh - (currentSpeedKmh - speedDiffMs * 3.6)).toFixed(1) + ' km/h in ' + timeDiff.toFixed(2) + 's)');
+      }
       maxGForce.current = gForce;
     }
 
