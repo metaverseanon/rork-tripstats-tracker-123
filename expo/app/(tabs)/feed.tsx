@@ -184,10 +184,6 @@ export default function FeedScreen() {
       if (ctx?.prev) utils.posts.getFeedPosts.setData({ userId: user?.id || '', limit: 30 }, ctx.prev);
       if (ctx?.prevDiscover) utils.posts.getDiscoverPosts.setData({ userId: user?.id || '', limit: 20 }, ctx.prevDiscover);
     },
-    onSettled: () => {
-      void utils.posts.getFeedPosts.invalidate();
-      void utils.posts.getDiscoverPosts.invalidate();
-    },
   });
 
   const unrevPostMutation = trpc.posts.unrevPost.useMutation({
@@ -207,10 +203,6 @@ export default function FeedScreen() {
     onError: (_err, _vars, ctx) => {
       if (ctx?.prev) utils.posts.getFeedPosts.setData({ userId: user?.id || '', limit: 30 }, ctx.prev);
       if (ctx?.prevDiscover) utils.posts.getDiscoverPosts.setData({ userId: user?.id || '', limit: 20 }, ctx.prevDiscover);
-    },
-    onSettled: () => {
-      void utils.posts.getFeedPosts.invalidate();
-      void utils.posts.getDiscoverPosts.invalidate();
     },
   });
 
@@ -232,10 +224,6 @@ export default function FeedScreen() {
       if (ctx?.prev) utils.social.getFeed.setData({ userId: user?.id || '', limit: 30 }, ctx.prev);
       if (ctx?.prevDiscover) utils.social.getDiscoverDrives.setData({ userId: user?.id || '', limit: 20 }, ctx.prevDiscover);
     },
-    onSettled: () => {
-      void utils.social.getFeed.invalidate();
-      void utils.social.getDiscoverDrives.invalidate();
-    },
   });
 
   const unrevActivityMutation = trpc.social.unrevActivity.useMutation({
@@ -255,10 +243,6 @@ export default function FeedScreen() {
     onError: (_err, _vars, ctx) => {
       if (ctx?.prev) utils.social.getFeed.setData({ userId: user?.id || '', limit: 30 }, ctx.prev);
       if (ctx?.prevDiscover) utils.social.getDiscoverDrives.setData({ userId: user?.id || '', limit: 20 }, ctx.prevDiscover);
-    },
-    onSettled: () => {
-      void utils.social.getFeed.invalidate();
-      void utils.social.getDiscoverDrives.invalidate();
     },
   });
 
