@@ -822,6 +822,8 @@ export default function LeaderboardScreen() {
     return alternateNames.some(name => tripCountryLower === name || tripCountryLower.includes(name));
   }, []);
 
+  const timePeriodStart = useMemo(() => getTimePeriodStart(timePeriod), [timePeriod, getTimePeriodStart]);
+
   const leaderboardTripsQuery = trpc.trips.getLeaderboardTrips.useQuery(
     {
       category: activeCategory === 'challengesCompleted' ? 'topSpeed' : activeCategory,
@@ -830,6 +832,7 @@ export default function LeaderboardScreen() {
       carBrand: filters.carBrand,
       carModel: filters.carModel,
       timePeriod: timePeriod,
+      timePeriodStart: timePeriodStart > 0 ? timePeriodStart : undefined,
       limit: 10,
     },
     {

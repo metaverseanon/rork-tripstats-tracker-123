@@ -391,6 +391,7 @@ async function getTotalDistanceLeaderboard(input: {
   carBrand?: string;
   carModel?: string;
   timePeriod?: string;
+  timePeriodStart?: number;
   limit: number;
 }): Promise<SyncedTrip[]> {
   try {
@@ -410,7 +411,9 @@ async function getTotalDistanceLeaderboard(input: {
       params.push(`car_model=like.${encodeURIComponent(input.carBrand + "*")}`);
     }
 
-    if (input.timePeriod && input.timePeriod !== "all") {
+    if (input.timePeriodStart && input.timePeriodStart > 0) {
+      params.push(`start_time=gte.${input.timePeriodStart}`);
+    } else if (input.timePeriod && input.timePeriod !== "all") {
       const now = new Date();
       let startTime = 0;
       switch (input.timePeriod) {
@@ -588,6 +591,7 @@ export const tripsRouter = createTRPCRouter({
         carBrand: z.string().optional(),
         carModel: z.string().optional(),
         timePeriod: z.enum(["today", "week", "month", "year", "all"]).optional(),
+        timePeriodStart: z.number().optional(),
         limit: z.number().optional().default(10),
       })
     )
@@ -629,7 +633,9 @@ export const tripsRouter = createTRPCRouter({
           params.push(`car_model=like.${encodeURIComponent(input.carBrand + "*")}`);
         }
 
-        if (input.timePeriod && input.timePeriod !== "all") {
+        if (input.timePeriodStart && input.timePeriodStart > 0) {
+          params.push(`start_time=gte.${input.timePeriodStart}`);
+        } else if (input.timePeriod && input.timePeriod !== "all") {
           const now = new Date();
           let startTime: number;
           
