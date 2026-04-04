@@ -131,11 +131,18 @@ export default function RecapScreen() {
   };
 
   const getDriveConsistency = () => {
-    if (!lastTrip) return { throttle: 0, brake: 0 };
-    const avgRatio = lastTrip.avgSpeed > 0 ? Math.min((lastTrip.avgSpeed / lastTrip.topSpeed) * 100, 100) : 50;
-    const throttle = Math.round(Math.min(avgRatio + 20, 99));
-    const brake = Math.round(Math.min(100 - (lastTrip.corners * 2), 99));
-    return { throttle: Math.max(throttle, 30), brake: Math.max(brake, 40) };
+    if (!lastTrip) return { speedConsistency: 0, corneringFrequency: 0 };
+    const speedConsistency = lastTrip.topSpeed > 0
+      ? Math.round(Math.min((lastTrip.avgSpeed / lastTrip.topSpeed) * 100, 100))
+      : 0;
+    const distanceKm = lastTrip.distance / 1000;
+    const corneringFrequency = distanceKm > 0
+      ? Math.round(Math.min((lastTrip.corners / distanceKm) * 10, 100))
+      : 0;
+    return {
+      speedConsistency: Math.max(speedConsistency, 0),
+      corneringFrequency: Math.max(corneringFrequency, 0),
+    };
   };
 
   const periods: { key: TimePeriod; label: string }[] = [
@@ -452,21 +459,21 @@ export default function RecapScreen() {
               <Text style={styles.consistencyTitle}>DRIVE CONSISTENCY</Text>
             </View>
             <View style={styles.consistencyRow}>
-              <Text style={styles.consistencyLabel}>Throttle Response Avg</Text>
+              <Text style={styles.consistencyLabel}>Speed Consistency</Text>
               <View style={styles.consistencyBarContainer}>
                 <View style={styles.consistencyBarTrack}>
-                  <View style={[styles.consistencyBarFill, { width: `${consistency.throttle}%` }]} />
+                  <View style={[styles.consistencyBarFill, { width: `${consistency.speedConsistency}%` }]} />
                 </View>
-                <Text style={styles.consistencyPercent}>{consistency.throttle}%</Text>
+                <Text style={styles.consistencyPercent}>{consistency.speedConsistency}%</Text>
               </View>
             </View>
             <View style={styles.consistencyRow}>
-              <Text style={styles.consistencyLabel}>Brake Efficiency</Text>
+              <Text style={styles.consistencyLabel}>Cornering Frequency</Text>
               <View style={styles.consistencyBarContainer}>
                 <View style={styles.consistencyBarTrack}>
-                  <View style={[styles.consistencyBarFill, { width: `${consistency.brake}%` }]} />
+                  <View style={[styles.consistencyBarFill, { width: `${consistency.corneringFrequency}%` }]} />
                 </View>
-                <Text style={styles.consistencyPercent}>{consistency.brake}%</Text>
+                <Text style={styles.consistencyPercent}>{consistency.corneringFrequency}%</Text>
               </View>
             </View>
           </View>
