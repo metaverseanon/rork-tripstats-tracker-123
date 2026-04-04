@@ -836,9 +836,9 @@ export default function LeaderboardScreen() {
       limit: 10,
     },
     {
-      refetchInterval: 30000,
-      staleTime: 0,
-      refetchOnMount: 'always' as const,
+      refetchInterval: 60000,
+      staleTime: 15000,
+      refetchOnMount: true,
       enabled: activeCategory !== 'challengesCompleted',
     }
   );
@@ -847,9 +847,9 @@ export default function LeaderboardScreen() {
     { limit: 10 },
     {
       enabled: activeCategory === 'challengesCompleted',
-      refetchInterval: 30000,
-      staleTime: 0,
-      refetchOnMount: 'always' as const,
+      refetchInterval: 60000,
+      staleTime: 15000,
+      refetchOnMount: true,
     }
   );
 
