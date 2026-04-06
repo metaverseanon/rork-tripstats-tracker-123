@@ -1,8 +1,8 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Linking, Image, Switch, Platform, ActivityIndicator, Alert, Modal, TextInput, KeyboardAvoidingView } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Linking, Image, Switch, Platform, ActivityIndicator, Alert, Modal, TextInput, KeyboardAvoidingView, Share } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { router } from 'expo-router';
-import { ChevronRight, Gauge, Ruler, FileText, Shield, User, Car, Sun, Moon, HelpCircle, Bell, Mail, MessageSquare, X, Send, Check, Trophy, Instagram, Link2, Unlink, ImageIcon } from 'lucide-react-native';
+import { ChevronRight, Gauge, Ruler, FileText, Shield, User, Car, Sun, Moon, HelpCircle, Bell, Mail, MessageSquare, X, Send, Check, Trophy, Instagram, Link2, Unlink, ImageIcon, Share2 } from 'lucide-react-native';
 import { useSettings, SpeedUnit, DistanceUnit } from '@/providers/SettingsProvider';
 import { useUser } from '@/providers/UserProvider';
 import { useNotifications } from '@/providers/NotificationProvider';
@@ -136,6 +136,26 @@ export default function SettingsScreen() {
 
   const openAchievements = () => {
     router.push('/achievements' as any);
+  };
+
+  const handleShareProfile = async () => {
+    if (!user?.id) return;
+    const profileUrl = `https://redlineapp.io/profile/${user.id}`;
+    try {
+      if (Platform.OS === 'web') {
+        if (navigator.clipboard) {
+          await navigator.clipboard.writeText(profileUrl);
+          Alert.alert('Copied!', 'Profile link copied to clipboard.');
+        }
+      } else {
+        await Share.share({
+          message: `Check out my RedLine profile: ${profileUrl}`,
+          url: profileUrl,
+        });
+      }
+    } catch (error) {
+      console.error('[SETTINGS] Failed to share profile:', error);
+    }
   };
 
   const openSocialModal = (platform: 'instagram' | 'tiktok') => {
@@ -548,6 +568,24 @@ export default function SettingsScreen() {
             </View>
             <ChevronRight size={20} color={colors.textLight} />
           </TouchableOpacity>
+
+          {isAuthenticated && (
+            <>
+              <View style={styles.divider} />
+              <TouchableOpacity style={styles.linkItem} onPress={handleShareProfile} activeOpacity={0.7}>
+                <View style={styles.linkContent}>
+                  <View style={[styles.settingIconContainer, { backgroundColor: colors.accent + '18' }]}>
+                    <Share2 size={20} color={colors.accent} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.linkText}>Share Profile</Text>
+                    <Text style={styles.notificationDescription}>Share your profile link with others</Text>
+                  </View>
+                </View>
+                <ChevronRight size={20} color={colors.textLight} />
+              </TouchableOpacity>
+            </>
+          )}
 
           {isAuthenticated && carName && (
             <>
