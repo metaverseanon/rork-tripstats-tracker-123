@@ -11,8 +11,9 @@ import {
   UIManager,
   ActivityIndicator,
   Animated,
+  Alert,
 } from 'react-native';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams, router } from 'expo-router';
 import { MapPin, Car, Zap, Navigation, Gauge, Activity, CornerDownRight, Timer, Route, Trophy, Calendar, ChevronDown, UserPlus, UserMinus, Flame, Flag, Users, Star, Rocket, Moon, Shield, Clock } from 'lucide-react-native';
 import { useAchievements } from '@/providers/AchievementProvider';
 import { ACHIEVEMENTS, ACHIEVEMENT_CATEGORIES } from '@/constants/achievements';
@@ -536,7 +537,18 @@ export default function UserProfileScreen() {
   });
 
   const handleFollowToggle = useCallback(() => {
-    if (!user?.id || !userId) return;
+    if (!userId) return;
+    if (!user?.id) {
+      Alert.alert(
+        'Account Required',
+        'You need to create an account to follow other users.',
+        [
+          { text: 'Not Now', style: 'cancel' },
+          { text: 'Sign Up', onPress: () => router.push('/profile' as any) },
+        ]
+      );
+      return;
+    }
     if (isFollowingQuery.data?.following) {
       unfollowMutation.mutate({ followerId: user.id, followingId: userId });
     } else {
@@ -775,7 +787,7 @@ export default function UserProfileScreen() {
             <Text style={styles.followCount}>{followCountsQuery.data?.following ?? 0}</Text>
             <Text style={styles.followLabel}>Following</Text>
           </View>
-          {!isOwnProfile && user?.id && userId && (
+          {!isOwnProfile && userId && (
             <TouchableOpacity
               style={[
                 styles.followButton,
