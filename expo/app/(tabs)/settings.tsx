@@ -143,8 +143,18 @@ export default function SettingsScreen() {
     const profileUrl = `https://redlineapp.io/profile/${user.id}`;
     try {
       if (Platform.OS === 'web') {
-        if (navigator.clipboard) {
+        try {
           await navigator.clipboard.writeText(profileUrl);
+          Alert.alert('Copied!', 'Profile link copied to clipboard.');
+        } catch {
+          const textArea = document.createElement('textarea');
+          textArea.value = profileUrl;
+          textArea.style.position = 'fixed';
+          textArea.style.left = '-9999px';
+          document.body.appendChild(textArea);
+          textArea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textArea);
           Alert.alert('Copied!', 'Profile link copied to clipboard.');
         }
       } else {
