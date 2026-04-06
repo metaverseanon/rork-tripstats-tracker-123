@@ -779,11 +779,20 @@ export const socialRouter = createTRPCRouter({
         const allRows: ActivityFeedRow[] = await feedResp.json();
         const discoverRows = allRows.filter(r => !followingIds.has(r.user_id));
 
-        for (let i = discoverRows.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [discoverRows[i], discoverRows[j]] = [discoverRows[j], discoverRows[i]];
+        const seenUsers = new Set<string>();
+        const uniqueRows: ActivityFeedRow[] = [];
+        for (const row of discoverRows) {
+          if (!seenUsers.has(row.user_id)) {
+            seenUsers.add(row.user_id);
+            uniqueRows.push(row);
+          }
         }
-        const selected = discoverRows.slice(0, input.limit);
+
+        for (let i = uniqueRows.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [uniqueRows[i], uniqueRows[j]] = [uniqueRows[j], uniqueRows[i]];
+        }
+        const selected = uniqueRows.slice(0, input.limit);
 
         if (selected.length === 0) return [];
 

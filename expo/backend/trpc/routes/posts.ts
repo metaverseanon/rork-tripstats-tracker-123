@@ -587,11 +587,20 @@ export const postsRouter = createTRPCRouter({
         const allPosts: PostRow[] = await postsResp.json();
         const discoverPosts = allPosts.filter((p) => !followingIds.has(p.user_id));
 
-        for (let i = discoverPosts.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [discoverPosts[i], discoverPosts[j]] = [discoverPosts[j], discoverPosts[i]];
+        const seenUsers = new Set<string>();
+        const uniquePosts: PostRow[] = [];
+        for (const post of discoverPosts) {
+          if (!seenUsers.has(post.user_id)) {
+            seenUsers.add(post.user_id);
+            uniquePosts.push(post);
+          }
         }
-        const selected = discoverPosts.slice(0, input.limit);
+
+        for (let i = uniquePosts.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [uniquePosts[i], uniquePosts[j]] = [uniquePosts[j], uniquePosts[i]];
+        }
+        const selected = uniquePosts.slice(0, input.limit);
 
         if (selected.length === 0) return [];
 
