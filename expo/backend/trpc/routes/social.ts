@@ -36,24 +36,44 @@ async function sendFollowNotification(followerId: string, followingId: string): 
 
     console.log("[SOCIAL] Sending follow notification to:", followingId);
 
-    await fetch(EXPO_PUSH_URL, {
-      method: "POST",
-      headers: {
-        "Accept": "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        to: following.push_token,
-        title: "👋 New Follower!",
-        body: `${followerName}${carText} just started following you!`,
-        sound: "default",
-        data: { type: "new_follower", fromUserId: followerId },
-        channelId: "default",
-        priority: "high",
-      }),
-    });
+    const notifId = `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const notifRow = {
+      id: notifId,
+      user_id: followingId,
+      type: "new_follower",
+      from_user_id: followerId,
+      post_id: null,
+      message: `${followerName}${carText} started following you`,
+      read: false,
+      created_at: Date.now(),
+    };
 
-    console.log("[SOCIAL] Follow notification sent");
+    fetch(getSupabaseRestUrl("notifications"), {
+      method: "POST",
+      headers: getSupabaseHeaders(),
+      body: JSON.stringify(notifRow),
+    }).catch(err => console.error("[SOCIAL] Follow in-app notification error:", err));
+
+    if (following.push_token) {
+      await fetch(EXPO_PUSH_URL, {
+        method: "POST",
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          to: following.push_token,
+          title: "👋 New Follower!",
+          body: `${followerName}${carText} just started following you!`,
+          sound: "default",
+          data: { type: "new_follower", fromUserId: followerId },
+          channelId: "default",
+          priority: "high",
+        }),
+      });
+    }
+
+    console.log("[SOCIAL] Follow notification sent (in-app + push)");
   } catch (error) {
     console.error("[SOCIAL] Follow notification error:", error);
   }
