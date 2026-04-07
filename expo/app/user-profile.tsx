@@ -510,6 +510,13 @@ export default function UserProfileScreen() {
     setAvatarError(false);
   }, [userId]);
 
+  useEffect(() => {
+    if (profileUser?.profilePicture) {
+      console.log('[USER-PROFILE] Profile picture URL:', profileUser.profilePicture);
+      setAvatarError(false);
+    }
+  }, [profileUser?.profilePicture]);
+
   const remoteAchievementsQuery = trpc.social.getUserAchievements.useQuery(
     { userId: userId || '' },
     { enabled: !isOwnProfile && !!userId }
@@ -589,9 +596,10 @@ export default function UserProfileScreen() {
 
     if (!isOwnProfile && remoteProfileQuery.data) {
       const p = remoteProfileQuery.data;
+      console.log('[USER-PROFILE] Remote profile data - profilePicture:', p.profilePicture, 'displayName:', p.displayName);
       return {
         displayName: p.displayName,
-        profilePicture: p.profilePicture ?? undefined,
+        profilePicture: (p.profilePicture && p.profilePicture.length > 0) ? p.profilePicture : undefined,
         country: p.country,
         city: p.city,
         carBrand: p.carBrand,
