@@ -777,7 +777,7 @@ export const socialRouter = createTRPCRouter({
         if (!feedResp.ok) return [];
 
         const allRows: ActivityFeedRow[] = await feedResp.json();
-        const discoverRows = allRows.filter(r => !followingIds.has(r.user_id));
+        const discoverRows = allRows.filter(r => !followingIds.has(r.user_id) && ((r.top_speed ?? 0) > 0 || (r.distance ?? 0) > 0));
 
         const seenUsers = new Set<string>();
         const uniqueRows: ActivityFeedRow[] = [];

@@ -337,7 +337,9 @@ export default function FeedScreen() {
   }, [tabIndicatorAnim]);
 
   const drivesFeed = useMemo(() => {
-    return (feedQuery.data ?? []).sort((a, b) => b.createdAt - a.createdAt);
+    return (feedQuery.data ?? [])
+      .filter((d) => d.topSpeed > 0 || d.distance > 0)
+      .sort((a, b) => b.createdAt - a.createdAt);
   }, [feedQuery.data]);
 
   const postsFeed = useMemo(() => {
