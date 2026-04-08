@@ -231,208 +231,6 @@ interface SupabaseTripRow {
   updated_at?: string;
 }
 
-// ========== ANTI-CHEAT VALIDATION ==========
-
-interface AntiCheatResult {
-  passed: boolean;
-  flags: string[];
-}
-
-function haversineDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
-function calculateBearing(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const lat1Rad = lat1 * Math.PI / 180;
-  const lat2Rad = lat2 * Math.PI / 180;
-  const y = Math.sin(dLon) * Math.cos(lat2Rad);
-  const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLon);
-  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
-}
-
-function checkStraightLine(routePoints: { latitude: number; longitude: number }[]): string | null {
-  if (!routePoints || routePoints.length < 10) return null;
-
-  let totalDistance = 0;
-  for (let i = 1; i < routePoints.length; i++) {
-    totalDistance += haversineDistanceKm(
-      routePoints[i - 1].latitude, routePoints[i - 1].longitude,
-      routePoints[i].latitude, routePoints[i].longitude
-    );
-  }
-
-  if (totalDistance < 10) return null;
-
-  let totalBearingChange = 0;
-  let segmentCount = 0;
-  for (let i = 2; i < routePoints.length; i++) {
-    const seg1Dist = haversineDistanceKm(
-      routePoints[i - 2].latitude, routePoints[i - 2].longitude,
-      routePoints[i - 1].latitude, routePoints[i - 1].longitude
-    );
-    if (seg1Dist < 0.01) continue;
-
-    const bearing1 = calculateBearing(
-      routePoints[i - 2].latitude, routePoints[i - 2].longitude,
-      routePoints[i - 1].latitude, routePoints[i - 1].longitude
-    );
-    const bearing2 = calculateBearing(
-      routePoints[i - 1].latitude, routePoints[i - 1].longitude,
-      routePoints[i].latitude, routePoints[i].longitude
-    );
-    let diff = Math.abs(bearing2 - bearing1);
-    if (diff > 180) diff = 360 - diff;
-    totalBearingChange += diff;
-    segmentCount++;
-  }
-
-  if (segmentCount === 0) return null;
-  const avgBearingChange = totalBearingChange / segmentCount;
-
-  if (avgBearingChange < 1.5 && totalDistance > 15) {
-    return `straight_line: avgBearing=${avgBearingChange.toFixed(2)}deg, dist=${totalDistance.toFixed(1)}km`;
-  }
-  return null;
-}
-
-function checkSpeedConsistency(avgSpeed: number, topSpeed: number, duration: number): string | null {
-  if (duration < 600) return null;
-  if (topSpeed <= 0 || avgSpeed <= 0) return null;
-
-  const ratio = avgSpeed / topSpeed;
-  if (ratio > 0.92 && avgSpeed > 120) {
-    return `speed_consistency: ratio=${ratio.toFixed(3)}, avg=${avgSpeed.toFixed(1)}, top=${topSpeed.toFixed(1)}, dur=${duration.toFixed(0)}s`;
-  }
-  return null;
-}
-
-function checkSegmentSpeeds(routePoints: { latitude: number; longitude: number }[], duration: number): string | null {
-  if (!routePoints || routePoints.length < 3 || duration <= 0) return null;
-
-  const timePerSegment = duration / (routePoints.length - 1);
-  if (timePerSegment <= 0) return null;
-
-  let impossibleCount = 0;
-  let maxSegmentSpeed = 0;
-  for (let i = 1; i < routePoints.length; i++) {
-    const dist = haversineDistanceKm(
-      routePoints[i - 1].latitude, routePoints[i - 1].longitude,
-      routePoints[i].latitude, routePoints[i].longitude
-    );
-    const segSpeedKmh = (dist / timePerSegment) * 3600;
-    if (segSpeedKmh > maxSegmentSpeed) maxSegmentSpeed = segSpeedKmh;
-    if (segSpeedKmh > 400) {
-      impossibleCount++;
-    }
-  }
-
-  const total = routePoints.length - 1;
-  if (impossibleCount > 2 && (impossibleCount / total) > 0.1) {
-    return `impossible_segments: ${impossibleCount}/${total} over 400km/h, maxSeg=${maxSegmentSpeed.toFixed(0)}km/h`;
-  }
-  return null;
-}
-
-function checkLargeGaps(routePoints: { latitude: number; longitude: number }[]): string | null {
-  if (!routePoints || routePoints.length < 3) return null;
-
-  let gapCount = 0;
-  let maxGap = 0;
-  for (let i = 1; i < routePoints.length; i++) {
-    const dist = haversineDistanceKm(
-      routePoints[i - 1].latitude, routePoints[i - 1].longitude,
-      routePoints[i].latitude, routePoints[i].longitude
-    );
-    if (dist > maxGap) maxGap = dist;
-    if (dist > 50) {
-      gapCount++;
-    }
-  }
-
-  if (gapCount > 0) {
-    return `large_gaps: ${gapCount} segments >50km, maxGap=${maxGap.toFixed(1)}km`;
-  }
-  return null;
-}
-
-function checkHighAverageSpeed(avgSpeed: number, duration: number): string | null {
-  if (duration < 120) return null;
-  if (avgSpeed > 200) {
-    return `high_avg_speed: avg=${avgSpeed.toFixed(1)}km/h sustained for ${duration.toFixed(0)}s`;
-  }
-  return null;
-}
-
-function checkGlitchedDuration(duration: number, avgSpeed: number): string | null {
-  if (duration > 86400 && avgSpeed < 10) {
-    return `glitched_duration: ${(duration / 3600).toFixed(1)}h with avg=${avgSpeed.toFixed(1)}km/h`;
-  }
-  return null;
-}
-
-function validateTripAntiCheat(trip: {
-  avgSpeed: number;
-  topSpeed: number;
-  duration: number;
-  distance: number;
-  routePoints?: { latitude: number; longitude: number }[];
-}): AntiCheatResult {
-  const flags: string[] = [];
-  const blockingFlags: string[] = [];
-
-  const straightFlag = checkStraightLine(trip.routePoints || []);
-  if (straightFlag) { flags.push(straightFlag); blockingFlags.push(straightFlag); }
-
-  const speedFlag = checkSpeedConsistency(trip.avgSpeed, trip.topSpeed, trip.duration);
-  if (speedFlag) { flags.push(speedFlag); blockingFlags.push(speedFlag); }
-
-  const segmentFlag = checkSegmentSpeeds(trip.routePoints || [], trip.duration);
-  if (segmentFlag) { flags.push(segmentFlag); blockingFlags.push(segmentFlag); }
-
-  const highAvgFlag = checkHighAverageSpeed(trip.avgSpeed, trip.duration);
-  if (highAvgFlag) { flags.push(highAvgFlag); blockingFlags.push(highAvgFlag); }
-
-  const glitchFlag = checkGlitchedDuration(trip.duration, trip.avgSpeed);
-  if (glitchFlag) { flags.push(glitchFlag); blockingFlags.push(glitchFlag); }
-
-  const gapFlag = checkLargeGaps(trip.routePoints || []);
-  if (gapFlag) flags.push(gapFlag);
-
-  const passed = blockingFlags.length === 0;
-  if (!passed) {
-    console.log(`[ANTICHEAT] Trip FLAGGED (${blockingFlags.length} blocking, ${flags.length} total):`, flags.join(' | '));
-  }
-  return { passed, flags: blockingFlags };
-}
-
-function validateRowAntiCheat(row: SupabaseTripRow): AntiCheatResult {
-  let routePoints: { latitude: number; longitude: number }[] | undefined;
-  if (row.route_points) {
-    if (typeof row.route_points === 'string') {
-      try { routePoints = JSON.parse(row.route_points); } catch { /* ignore */ }
-    } else if (Array.isArray(row.route_points)) {
-      routePoints = row.route_points as { latitude: number; longitude: number }[];
-    }
-  }
-
-  return validateTripAntiCheat({
-    avgSpeed: row.avg_speed,
-    topSpeed: row.top_speed,
-    duration: row.duration,
-    distance: row.distance,
-    routePoints,
-  });
-}
-
-// ========== END ANTI-CHEAT ==========
-
 const MIN_VALID_0_TO_100 = 1.5;
 const MIN_VALID_0_TO_200 = 4.0;
 const MIN_VALID_0_TO_300 = 8.0;
@@ -657,12 +455,7 @@ async function getTotalDistanceLeaderboard(input: {
     }
 
     const rows: SupabaseTripRow[] = await response.json();
-    const cleanRows = rows.filter(row => {
-      const ac = validateRowAntiCheat(row);
-      if (!ac.passed) console.log(`[ANTICHEAT_LB] Filtering totalDistance trip ${row.id} from ${row.user_name}: ${ac.flags.join(' | ')}`);
-      return ac.passed;
-    });
-    const trips = cleanRows.map(supabaseRowToTrip);
+    const trips = rows.map(supabaseRowToTrip);
 
     const userTotals = new Map<string, { totalDistance: number; trip: SyncedTrip }>(); 
     for (const trip of trips) {
@@ -705,19 +498,6 @@ export const tripsRouter = createTRPCRouter({
       }
 
       try {
-        const antiCheat = validateTripAntiCheat({
-          avgSpeed: input.avgSpeed,
-          topSpeed: input.topSpeed,
-          duration: input.duration,
-          distance: input.distance,
-          routePoints: input.routePoints,
-        });
-
-        if (!antiCheat.passed) {
-          console.log(`[ANTICHEAT] Rejecting trip ${input.id} from user ${input.userId}: ${antiCheat.flags.join(' | ')}`);
-          return { success: false, message: `Trip flagged by anti-cheat: ${antiCheat.flags.join(', ')}` };
-        }
-
         const row = tripToSupabaseRow(input);
         console.log("[TRIPS] Supabase row to upsert:", JSON.stringify(row));
         
@@ -938,14 +718,7 @@ export const tripsRouter = createTRPCRouter({
         const rows: SupabaseTripRow[] = await response.json();
         console.log("[LEADERBOARD] Raw rows returned:", rows.length);
         
-        const cleanRows = rows.filter(row => {
-          const ac = validateRowAntiCheat(row);
-          if (!ac.passed) console.log(`[ANTICHEAT_LB] Filtering leaderboard trip ${row.id} from ${row.user_name}: ${ac.flags.join(' | ')}`);
-          return ac.passed;
-        });
-        console.log("[LEADERBOARD] After anti-cheat filter:", cleanRows.length, "of", rows.length);
-        
-        const trips = cleanRows.map(supabaseRowToTrip);
+        const trips = rows.map(supabaseRowToTrip);
         
         const uniqueUsers = [...new Set(trips.map(t => t.userId))];
         console.log("[LEADERBOARD] Fetched", trips.length, "trips from", uniqueUsers.length, "unique users:", uniqueUsers.map(uid => {
@@ -992,95 +765,6 @@ export const tripsRouter = createTRPCRouter({
       } catch (error) {
         console.error("[TRIPS] Error fetching user trips:", error);
         return [];
-      }
-    }),
-
-  cleanupSuspiciousDrives: publicProcedure
-    .input(z.object({ dryRun: z.boolean().optional().default(true) }))
-    .mutation(async ({ input }) => {
-      console.log("[ANTICHEAT_CLEANUP] Starting cleanup, dryRun:", input.dryRun);
-
-      if (!isDbConfigured()) {
-        return { success: false, message: "Database not configured", flagged: [], deleted: 0 };
-      }
-
-      try {
-        const url = `${getSupabaseRestUrl("trips")}?select=id,user_id,user_name,distance,duration,avg_speed,top_speed,route_points&order=start_time.desc&limit=2000`;
-        const response = await fetch(url, { method: "GET", headers: getSupabaseHeaders() });
-
-        if (!response.ok) {
-          const error = await response.text();
-          console.error("[ANTICHEAT_CLEANUP] Failed to fetch trips:", error);
-          return { success: false, message: "Failed to fetch trips", flagged: [], deleted: 0 };
-        }
-
-        const rows: SupabaseTripRow[] = await response.json();
-        console.log("[ANTICHEAT_CLEANUP] Scanning", rows.length, "trips");
-
-        const flaggedTrips: { id: string; userId: string; userName?: string; flags: string[] }[] = [];
-
-        for (const row of rows) {
-          const result = validateRowAntiCheat(row);
-          if (!result.passed) {
-            flaggedTrips.push({
-              id: row.id,
-              userId: row.user_id,
-              userName: row.user_name,
-              flags: result.flags,
-            });
-          }
-        }
-
-        console.log(`[ANTICHEAT_CLEANUP] Found ${flaggedTrips.length} suspicious trips out of ${rows.length}`);
-
-        for (const ft of flaggedTrips) {
-          console.log(`[ANTICHEAT_CLEANUP] FLAGGED: trip=${ft.id} user=${ft.userName || ft.userId} flags=${ft.flags.join(' | ')}`);
-        }
-
-        let deletedCount = 0;
-        if (!input.dryRun && flaggedTrips.length > 0) {
-          for (const ft of flaggedTrips) {
-            try {
-              const delResp = await fetch(
-                `${getSupabaseRestUrl("trips")}?id=eq.${ft.id}`,
-                { method: "DELETE", headers: getSupabaseHeaders() }
-              );
-              if (delResp.ok) {
-                deletedCount++;
-                console.log(`[ANTICHEAT_CLEANUP] Deleted trip: ${ft.id}`);
-              } else {
-                console.error(`[ANTICHEAT_CLEANUP] Failed to delete trip ${ft.id}:`, await delResp.text());
-              }
-
-              const actDelResp = await fetch(
-                `${getSupabaseRestUrl("activity_feed")}?trip_id=eq.${ft.id}`,
-                { method: "DELETE", headers: getSupabaseHeaders() }
-              );
-              if (actDelResp.ok) {
-                console.log(`[ANTICHEAT_CLEANUP] Deleted activity feed for trip: ${ft.id}`);
-              }
-            } catch (err) {
-              console.error(`[ANTICHEAT_CLEANUP] Error deleting trip ${ft.id}:`, err);
-            }
-          }
-        }
-
-        return {
-          success: true,
-          message: input.dryRun
-            ? `Dry run: found ${flaggedTrips.length} suspicious trips`
-            : `Deleted ${deletedCount} of ${flaggedTrips.length} flagged trips`,
-          flagged: flaggedTrips.map(ft => ({
-            id: ft.id,
-            userId: ft.userId,
-            userName: ft.userName,
-            flags: ft.flags,
-          })),
-          deleted: deletedCount,
-        };
-      } catch (error) {
-        console.error("[ANTICHEAT_CLEANUP] Error:", error);
-        return { success: false, message: `Cleanup error: ${error instanceof Error ? error.message : String(error)}`, flagged: [], deleted: 0 };
       }
     }),
 

@@ -6,7 +6,7 @@ import { appRouter } from "./trpc/app-router";
 import { createContext } from "./trpc/create-context";
 import { getDbConfig } from "./trpc/db";
 
-// Backend v1.0.15 - Anti-cheat validation
+// Backend v1.0.14 - Multiple cron route paths
 const app = new Hono();
 
 app.use("*", cors());
@@ -20,7 +20,7 @@ app.use(
   })
 );
 
-app.get("/", (c) => c.json({ status: "ok", message: "API is running", version: "1.0.15" }));
+app.get("/", (c) => c.json({ status: "ok", message: "API is running", version: "1.0.14" }));
 
 // Debug endpoint to check database config
 app.get("/health", (c) => {
@@ -129,26 +129,6 @@ app.get("/cron/drive-reminder", driveReminderHandler);
 app.post("/cron/drive-reminder", driveReminderHandler);
 app.get("/cron/drive_reminder", driveReminderHandler);
 app.post("/cron/drive_reminder", driveReminderHandler);
-
-app.get("/admin/cleanup-drives", async (c) => {
-  const authHeader = c.req.header("Authorization");
-  const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return c.json({ error: "Unauthorized" }, 401);
-  }
-
-  const dryRun = c.req.query("dryRun") !== "false";
-  console.log("[ADMIN_CLEANUP] Triggered, dryRun:", dryRun);
-
-  try {
-    const caller = appRouter.createCaller({ req: c.req.raw, db: getDbConfig() });
-    const result = await caller.trips.cleanupSuspiciousDrives({ dryRun });
-    return c.json(result);
-  } catch (error) {
-    console.error("[ADMIN_CLEANUP] Error:", error);
-    return c.json({ success: false, error: error instanceof Error ? error.message : "Unknown error" }, 500);
-  }
-});
 
 app.all("/cron/*", (c) => {
   console.log("[CRON] Unmatched cron route:", c.req.method, c.req.url, c.req.path);
