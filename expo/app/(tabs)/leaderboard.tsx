@@ -833,7 +833,7 @@ export default function LeaderboardScreen() {
       carModel: filters.carModel,
       timePeriod: timePeriod,
       timePeriodStart: timePeriodStart > 0 ? timePeriodStart : undefined,
-      limit: 50,
+      limit: 10,
     },
     {
       refetchInterval: 60000,
@@ -965,27 +965,26 @@ export default function LeaderboardScreen() {
         break;
       case 'acceleration':
         sorted = [...allTrips]
-          .filter((t) => (t.acceleration ?? 0) > 0)
+          .filter((t) => (t.acceleration ?? 0) > 0 && (t.acceleration ?? 0) <= 20)
           .sort((a, b) => (b.acceleration ?? 0) - (a.acceleration ?? 0));
         break;
       case 'gForce':
         sorted = [...allTrips]
-          .filter((t) => (t.maxGForce ?? 0) > 0)
+          .filter((t) => (t.maxGForce ?? 0) > 0 && (t.maxGForce ?? 0) <= 4.0)
           .sort((a, b) => (b.maxGForce ?? 0) - (a.maxGForce ?? 0));
         break;
       case 'zeroToHundred':
         sorted = [...allTrips]
-          .filter((t) => (t.time0to100 ?? 0) > 0)
+          .filter((t) => (t.time0to100 ?? 0) >= 2.0)
           .sort((a, b) => (a.time0to100 ?? Infinity) - (b.time0to100 ?? Infinity));
         break;
       case 'zeroToTwoHundred':
         sorted = [...allTrips]
-          .filter((t) => (t.time0to200 ?? 0) > 0)
+          .filter((t) => (t.time0to200 ?? 0) >= 5.0)
           .sort((a, b) => (a.time0to200 ?? Infinity) - (b.time0to200 ?? Infinity));
         break;
     }
 
-    console.log('[LEADERBOARD_UI] Category:', activeCategory, 'Backend trips:', backendTrips.length, 'After sort/filter:', sorted.length, 'Showing:', Math.min(sorted.length, 10));
     return sorted.slice(0, 10);
   }, [filteredLocalTrips, leaderboardTripsQuery.data, activeCategory]);
 

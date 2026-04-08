@@ -698,7 +698,7 @@ export const tripsRouter = createTRPCRouter({
 
         params.push(filter);
         params.push(`order=${orderBy}.${ascending ? "asc" : "desc"}`);
-        params.push(`limit=${Math.max(input.limit * 5, 50)}`);
+        params.push(`limit=${input.limit}`);
 
         url += "?" + params.join("&");
 
