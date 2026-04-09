@@ -408,18 +408,23 @@ export const socialRouter = createTRPCRouter({
         const feedRows: ActivityFeedRow[] = await feedResp.json();
         console.log("[SOCIAL] Feed rows fetched:", feedRows.length);
 
-        const usersUrl = `${getSupabaseRestUrl("users")}?select=id,display_name,car_brand,car_model,country,city,profile_picture`;
-        const usersResp = await fetch(usersUrl, { method: "GET", headers: getSupabaseHeaders() });
-        const allUsers: Record<string, any>[] = usersResp.ok ? await usersResp.json() : [];
-
+        const feedUserIds = [...new Set(feedRows.map(r => r.user_id))];
         const userMap = new Map<string, { displayName: string; carBrand?: string; carModel?: string; profilePicture?: string }>();
-        for (const u of allUsers) {
-          userMap.set(u.id, {
-            displayName: u.display_name,
-            carBrand: u.car_brand,
-            carModel: u.car_model,
-            profilePicture: u.profile_picture,
-          });
+
+        if (feedUserIds.length > 0) {
+          const idsParam = feedUserIds.map(id => `"${id}"`).join(',');
+          const usersUrl = `${getSupabaseRestUrl("users")}?id=in.(${idsParam})&select=id,display_name,car_brand,car_model,country,city,profile_picture`;
+          const usersResp = await fetch(usersUrl, { method: "GET", headers: getSupabaseHeaders() });
+          const allUsers: Record<string, any>[] = usersResp.ok ? await usersResp.json() : [];
+
+          for (const u of allUsers) {
+            userMap.set(u.id, {
+              displayName: u.display_name,
+              carBrand: u.car_brand,
+              carModel: u.car_model,
+              profilePicture: u.profile_picture,
+            });
+          }
         }
 
         const activityIds = feedRows.map(r => r.id);
