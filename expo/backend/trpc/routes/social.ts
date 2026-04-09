@@ -406,7 +406,10 @@ export const socialRouter = createTRPCRouter({
         const feedRows: ActivityFeedRow[] = await feedResp.json();
         console.log("[SOCIAL] Feed rows fetched:", feedRows.length);
 
-        const usersUrl = `${getSupabaseRestUrl("users")}?select=id,display_name,car_brand,car_model,country,city,profile_picture`;
+        const feedUserIds = [...new Set(feedRows.map(r => r.user_id))];
+        const userIdFilter = feedUserIds.map(id => `"${id}"`).join(",");
+
+        const usersUrl = `${getSupabaseRestUrl("users")}?id=in.(${userIdFilter})&select=id,display_name,car_brand,car_model,country,city,profile_picture`;
         const usersResp = await fetch(usersUrl, { method: "GET", headers: getSupabaseHeaders() });
         const allUsers: Record<string, any>[] = usersResp.ok ? await usersResp.json() : [];
 
@@ -418,6 +421,29 @@ export const socialRouter = createTRPCRouter({
             carModel: u.car_model,
             profilePicture: u.profile_picture,
           });
+        }
+
+        const missingUserIds = feedUserIds.filter(id => !userMap.has(id) || !userMap.get(id)?.displayName);
+        if (missingUserIds.length > 0) {
+          const missingFilter = missingUserIds.map(id => `"${id}"`).join(",");
+          const tripsUrl = `${getSupabaseRestUrl("trips")}?user_id=in.(${missingFilter})&select=user_id,user_name,user_profile_picture&order=start_time.desc`;
+          const tripsResp = await fetch(tripsUrl, { method: "GET", headers: getSupabaseHeaders() });
+          if (tripsResp.ok) {
+            const tripRows: { user_id: string; user_name?: string; user_profile_picture?: string }[] = await tripsResp.json();
+            for (const row of tripRows) {
+              const existing = userMap.get(row.user_id);
+              if (!existing || !existing.displayName) {
+                userMap.set(row.user_id, {
+                  displayName: row.user_name || (existing?.displayName ?? ""),
+                  carBrand: existing?.carBrand,
+                  carModel: existing?.carModel,
+                  profilePicture: row.user_profile_picture || existing?.profilePicture,
+                });
+              } else if (!existing.profilePicture && row.user_profile_picture) {
+                existing.profilePicture = row.user_profile_picture;
+              }
+            }
+          }
         }
 
         const activityIds = feedRows.map(r => r.id);
@@ -442,7 +468,7 @@ export const socialRouter = createTRPCRouter({
         return feedRows.map(row => ({
           id: row.id,
           userId: row.user_id,
-          userName: userMap.get(row.user_id)?.displayName ?? "Unknown",
+          userName: userMap.get(row.user_id)?.displayName || "Unknown",
           userProfilePicture: userMap.get(row.user_id)?.profilePicture,
           type: row.type,
           tripId: row.trip_id,
@@ -814,6 +840,31 @@ export const socialRouter = createTRPCRouter({
           });
         }
 
+        const missingUserIds = userIds.filter(id => !userMap.has(id) || !userMap.get(id)?.displayName);
+        if (missingUserIds.length > 0) {
+          const missingFilter = missingUserIds.map(id => `"${id}"`).join(",");
+          const tripsUrl = `${getSupabaseRestUrl("trips")}?user_id=in.(${missingFilter})&select=user_id,user_name,user_profile_picture&order=start_time.desc`;
+          const tripsResp = await fetch(tripsUrl, { method: "GET", headers: getSupabaseHeaders() });
+          if (tripsResp.ok) {
+            const tripRows: { user_id: string; user_name?: string; user_profile_picture?: string }[] = await tripsResp.json();
+            for (const row of tripRows) {
+              const existing = userMap.get(row.user_id);
+              if (!existing || !existing.displayName) {
+                userMap.set(row.user_id, {
+                  displayName: row.user_name || (existing?.displayName ?? ""),
+                  carBrand: existing?.carBrand,
+                  carModel: existing?.carModel,
+                  profilePicture: row.user_profile_picture || existing?.profilePicture,
+                  country: existing?.country,
+                  city: existing?.city,
+                });
+              } else if (!existing.profilePicture && row.user_profile_picture) {
+                existing.profilePicture = row.user_profile_picture;
+              }
+            }
+          }
+        }
+
         const activityIds = selected.map(r => r.id);
         let activityRevCounts: Record<string, number> = {};
         let userActivityRevs: Set<string> = new Set();
@@ -837,7 +888,7 @@ export const socialRouter = createTRPCRouter({
         return selected.map(row => ({
           id: row.id,
           userId: row.user_id,
-          userName: userMap.get(row.user_id)?.displayName ?? "Unknown",
+          userName: userMap.get(row.user_id)?.displayName || "Unknown",
           userProfilePicture: userMap.get(row.user_id)?.profilePicture,
           type: row.type,
           tripId: row.trip_id,

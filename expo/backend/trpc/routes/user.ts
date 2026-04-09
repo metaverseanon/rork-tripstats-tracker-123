@@ -1064,23 +1064,73 @@ export const userRouter = createTRPCRouter({
       console.log("[USER] Fetching public profile for:", input.userId);
       const users = await getAllUsers();
       const foundUser = users.find(u => u.id === input.userId);
-      if (!foundUser) {
-        console.log("[USER] User not found:", input.userId);
-        return null;
+      if (foundUser) {
+        let profilePicture = foundUser.profilePicture;
+        let displayName = foundUser.displayName;
+
+        if ((!profilePicture || !displayName) && isDbConfigured()) {
+          try {
+            const tripsUrl = `${getSupabaseRestUrl("trips")}?user_id=eq.${encodeURIComponent(input.userId)}&select=user_name,user_profile_picture&order=start_time.desc&limit=1`;
+            const tripsResp = await fetch(tripsUrl, { method: "GET", headers: getSupabaseHeaders() });
+            if (tripsResp.ok) {
+              const tripRows: { user_name?: string; user_profile_picture?: string }[] = await tripsResp.json();
+              if (tripRows.length > 0) {
+                if (!displayName && tripRows[0].user_name) displayName = tripRows[0].user_name;
+                if (!profilePicture && tripRows[0].user_profile_picture) profilePicture = tripRows[0].user_profile_picture;
+              }
+            }
+          } catch (e) {
+            console.error("[USER] Failed to fetch trip fallback data:", e);
+          }
+        }
+
+        return {
+          id: foundUser.id,
+          displayName: displayName || foundUser.displayName,
+          country: foundUser.country,
+          city: foundUser.city,
+          carBrand: foundUser.carBrand,
+          carModel: foundUser.carModel,
+          bio: foundUser.bio,
+          profilePicture: profilePicture || foundUser.profilePicture,
+          carPicture: foundUser.carPicture,
+          cars: foundUser.cars,
+          createdAt: foundUser.createdAt,
+        };
       }
-      return {
-        id: foundUser.id,
-        displayName: foundUser.displayName,
-        country: foundUser.country,
-        city: foundUser.city,
-        carBrand: foundUser.carBrand,
-        carModel: foundUser.carModel,
-        bio: foundUser.bio,
-        profilePicture: foundUser.profilePicture,
-        carPicture: foundUser.carPicture,
-        cars: foundUser.cars,
-        createdAt: foundUser.createdAt,
-      };
+
+      if (isDbConfigured()) {
+        try {
+          const tripsUrl = `${getSupabaseRestUrl("trips")}?user_id=eq.${encodeURIComponent(input.userId)}&select=user_name,user_profile_picture,car_model,country,city&order=start_time.desc&limit=1`;
+          const tripsResp = await fetch(tripsUrl, { method: "GET", headers: getSupabaseHeaders() });
+          if (tripsResp.ok) {
+            const tripRows: { user_name?: string; user_profile_picture?: string; car_model?: string; country?: string; city?: string }[] = await tripsResp.json();
+            if (tripRows.length > 0 && tripRows[0].user_name) {
+              console.log("[USER] Built profile from trips table for:", input.userId);
+              const t = tripRows[0];
+              const carParts = t.car_model?.split(' ') || [];
+              return {
+                id: input.userId,
+                displayName: t.user_name || 'Driver',
+                country: t.country,
+                city: t.city,
+                carBrand: carParts[0] || undefined,
+                carModel: carParts.slice(1).join(' ') || undefined,
+                bio: undefined,
+                profilePicture: t.user_profile_picture,
+                carPicture: undefined,
+                cars: null,
+                createdAt: Date.now(),
+              };
+            }
+          }
+        } catch (e) {
+          console.error("[USER] Failed to fetch trip fallback for missing user:", e);
+        }
+      }
+
+      console.log("[USER] User not found:", input.userId);
+      return null;
     }),
 
   getWeeklyRecapEnabled: publicProcedure
