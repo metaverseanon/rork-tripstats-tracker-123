@@ -63,7 +63,7 @@ async function sendFollowNotification(followerId: string, followingId: string): 
         },
         body: JSON.stringify({
           to: following.push_token,
-          title: "👋 New Follower!",
+          title: "New Follower!",
           body: `${followerName}${carText} just started following you!`,
           sound: "default",
           data: { type: "new_follower", fromUserId: followerId },
@@ -106,6 +106,8 @@ interface ActivityRevRow {
   user_id: string;
   created_at: number;
 }
+
+console.log("[SOCIAL] Social router module loaded v2.0");
 
 export const socialRouter = createTRPCRouter({
   follow: publicProcedure
@@ -242,16 +244,16 @@ export const socialRouter = createTRPCRouter({
         const resp = await fetch(url, { method: "GET", headers: getSupabaseHeaders() });
         if (!resp.ok) return [];
         const rows: FollowRow[] = await resp.json();
-        const userIds = rows.map(r => r.follower_id);
+        const followerUserIds = rows.map(r => r.follower_id);
 
-        if (userIds.length === 0) return [];
+        if (followerUserIds.length === 0) return [];
 
         const usersUrl = `${getSupabaseRestUrl("users")}?select=id,display_name,car_brand,car_model,country,city`;
         const usersResp = await fetch(usersUrl, { method: "GET", headers: getSupabaseHeaders() });
         if (!usersResp.ok) return [];
         const allUsers: Record<string, any>[] = await usersResp.json();
 
-        return userIds
+        return followerUserIds
           .map(uid => {
             const u = allUsers.find((au: any) => au.id === uid);
             if (!u) return null;
@@ -280,16 +282,16 @@ export const socialRouter = createTRPCRouter({
         const resp = await fetch(url, { method: "GET", headers: getSupabaseHeaders() });
         if (!resp.ok) return [];
         const rows: FollowRow[] = await resp.json();
-        const userIds = rows.map(r => r.following_id);
+        const followedUserIds = rows.map(r => r.following_id);
 
-        if (userIds.length === 0) return [];
+        if (followedUserIds.length === 0) return [];
 
         const usersUrl = `${getSupabaseRestUrl("users")}?select=id,display_name,car_brand,car_model,country,city`;
         const usersResp = await fetch(usersUrl, { method: "GET", headers: getSupabaseHeaders() });
         if (!usersResp.ok) return [];
         const allUsers: Record<string, any>[] = await usersResp.json();
 
-        return userIds
+        return followedUserIds
           .map(uid => {
             const u = allUsers.find((au: any) => au.id === uid);
             if (!u) return null;
@@ -393,8 +395,8 @@ export const socialRouter = createTRPCRouter({
 
         if (followingIds.length === 0) return [];
 
-        const userIdFilter = followingIds.map(id => `"${id}"`).join(",");
-        const feedUrl = `${getSupabaseRestUrl("activity_feed")}?user_id=in.(${userIdFilter})&order=created_at.desc&limit=${input.limit}&offset=${input.offset}`;
+        const feedFilterIds = followingIds.map(id => `"${id}"`).join(",");
+        const feedUrl = `${getSupabaseRestUrl("activity_feed")}?user_id=in.(${feedFilterIds})&order=created_at.desc&limit=${input.limit}&offset=${input.offset}`;
 
         const feedResp = await fetch(feedUrl, { method: "GET", headers: getSupabaseHeaders() });
         if (!feedResp.ok) {
@@ -421,8 +423,8 @@ export const socialRouter = createTRPCRouter({
         }
 
         const activityIds = feedRows.map(r => r.id);
-        let activityRevCounts: Record<string, number> = {};
-        let userActivityRevs: Set<string> = new Set();
+        const activityRevCounts: Record<string, number> = {};
+        const userActivityRevs: Set<string> = new Set();
 
         if (activityIds.length > 0) {
           const actIdFilter = activityIds.map(id => `"${id}"`).join(",");
@@ -599,8 +601,8 @@ export const socialRouter = createTRPCRouter({
 
         if (sorted.length === 0) return [];
 
-        const userIds = sorted.map(([uid]) => uid);
-        const idsParam = userIds.map(id => `"${id}"`).join(',');
+        const sortedUserIds = sorted.map(([uid]) => uid);
+        const idsParam = sortedUserIds.map(id => `"${id}"`).join(',');
         const usersUrl = `${getSupabaseRestUrl("users")}?id=in.(${idsParam})&select=id,display_name,profile_picture`;
         const usersResp = await fetch(usersUrl, { method: "GET", headers: getSupabaseHeaders() });
         const allUsers: { id: string; display_name: string; profile_picture?: string }[] = usersResp.ok ? await usersResp.json() : [];
@@ -608,10 +610,10 @@ export const socialRouter = createTRPCRouter({
         const userMap = new Map(allUsers.map(u => [u.id, u]));
         const totalAchievements = 23;
 
-        return sorted.map(([userId, count]) => {
-          const u = userMap.get(userId);
+        return sorted.map(([visitorId, count]) => {
+          const u = userMap.get(visitorId);
           return {
-            userId,
+            userId: visitorId,
             userName: u?.display_name ?? "Unknown",
             userProfilePicture: u?.profile_picture,
             achievementCount: count,
@@ -670,12 +672,12 @@ export const socialRouter = createTRPCRouter({
           const actData = await actResp.json();
           const actOwnerId = actData[0]?.user_id;
           if (actOwnerId && actOwnerId !== input.userId) {
-            const userUrl = `${getSupabaseRestUrl("users")}?id=eq.${encodeURIComponent(input.userId)}&select=display_name&limit=1`;
-            const userResp = await fetch(userUrl, { method: "GET", headers: getSupabaseHeaders() });
+            const revUserUrl = `${getSupabaseRestUrl("users")}?id=eq.${encodeURIComponent(input.userId)}&select=display_name&limit=1`;
+            const revUserResp = await fetch(revUserUrl, { method: "GET", headers: getSupabaseHeaders() });
             let fromName = "Someone";
-            if (userResp.ok) {
-              const userData = await userResp.json();
-              fromName = userData[0]?.display_name || "Someone";
+            if (revUserResp.ok) {
+              const revUserData = await revUserResp.json();
+              fromName = revUserData[0]?.display_name || "Someone";
             }
 
             const notifId = `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -708,7 +710,7 @@ export const socialRouter = createTRPCRouter({
                   headers: { Accept: "application/json", "Content-Type": "application/json" },
                   body: JSON.stringify({
                     to: pushToken,
-                    title: "\uD83C\uDFC1 New Rev!",
+                    title: "New Rev!",
                     body: `${fromName} revved your drive log!`,
                     sound: "default",
                     data: { type: "activity_rev", fromUserId: input.userId },
@@ -796,8 +798,8 @@ export const socialRouter = createTRPCRouter({
 
         if (selected.length === 0) return [];
 
-        const userIds = [...new Set(selected.map(r => r.user_id))];
-        const idsParam = userIds.map(id => `"${id}"`).join(',');
+        const discoverUserIds = [...new Set(selected.map(r => r.user_id))];
+        const idsParam = discoverUserIds.map(id => `"${id}"`).join(',');
         const usersUrl = `${getSupabaseRestUrl("users")}?id=in.(${idsParam})&select=id,display_name,car_brand,car_model,country,city,profile_picture`;
         const usersResp = await fetch(usersUrl, { method: "GET", headers: getSupabaseHeaders() });
         const allUsers: Record<string, any>[] = usersResp.ok ? await usersResp.json() : [];
@@ -815,8 +817,8 @@ export const socialRouter = createTRPCRouter({
         }
 
         const activityIds = selected.map(r => r.id);
-        let activityRevCounts: Record<string, number> = {};
-        let userActivityRevs: Set<string> = new Set();
+        const activityRevCounts: Record<string, number> = {};
+        const userActivityRevs: Set<string> = new Set();
 
         if (activityIds.length > 0) {
           const actIdFilter = activityIds.map(id => `"${id}"`).join(",");

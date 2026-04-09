@@ -6,7 +6,9 @@ import { appRouter } from "./trpc/app-router";
 import { createContext } from "./trpc/create-context";
 import { getDbConfig } from "./trpc/db";
 
-// Backend v1.0.14 - Multiple cron route paths
+const BACKEND_VERSION = "1.1.1";
+console.log(`[BACKEND] Starting RedLine API v${BACKEND_VERSION}`);
+
 const app = new Hono();
 
 app.use("*", cors());
@@ -20,9 +22,8 @@ app.use(
   })
 );
 
-app.get("/", (c) => c.json({ status: "ok", message: "API is running", version: "1.0.14" }));
+app.get("/", (c) => c.json({ status: "ok", message: "API is running", version: BACKEND_VERSION }));
 
-// Debug endpoint to check database config
 app.get("/health", (c) => {
   const dbEndpoint =
     process.env.RORK_DB_ENDPOINT ??
@@ -54,12 +55,11 @@ app.get("/health", (c) => {
       hasNamespace: !!dbNamespace,
       hasToken: !!dbToken,
     },
-    version: "1.0.13",
+    version: BACKEND_VERSION,
     timestamp: new Date().toISOString(),
   });
 });
 
-// Cron endpoint for weekly recap notifications
 const weeklyRecapHandler = async (c: any) => {
   const authHeader = c.req.header("Authorization");
   const cronSecret = process.env.CRON_SECRET;

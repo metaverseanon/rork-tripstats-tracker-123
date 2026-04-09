@@ -18,7 +18,7 @@ export function getDbConfig(): DbConfig {
     serviceRoleKey,
   };
 
-  console.log("[DB] getDbConfig (Supabase)", {
+  console.log("[DB] getDbConfig v1.1 (Supabase)", {
     hasUrl: !!url,
     urlLength: url?.length,
     hasAnonKey: !!anonKey,

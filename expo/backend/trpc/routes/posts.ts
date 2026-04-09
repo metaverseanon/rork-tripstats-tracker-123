@@ -245,8 +245,8 @@ export const postsRouter = createTRPCRouter({
 
         if (followingIds.length === 0) return [];
 
-        const userIdFilter = followingIds.map((id) => `"${id}"`).join(",");
-        const postsUrl = `${getSupabaseRestUrl("posts")}?user_id=in.(${userIdFilter})&order=created_at.desc&limit=${input.limit}&offset=${input.offset}`;
+        const postsUserFilter = followingIds.map((id) => `"${id}"`).join(",");
+        const postsUrl = `${getSupabaseRestUrl("posts")}?user_id=in.(${postsUserFilter})&order=created_at.desc&limit=${input.limit}&offset=${input.offset}`;
 
         const postsResp = await fetch(postsUrl, { method: "GET", headers: getSupabaseHeaders() });
         if (!postsResp.ok) return [];

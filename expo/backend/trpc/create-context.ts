@@ -7,7 +7,7 @@ import { getDbConfig } from "./db";
 export const createContext = async (opts: FetchCreateContextFnOptions) => {
   const db = getDbConfig();
 
-  console.log("[tRPC] createContext", {
+  console.log("[tRPC] createContext v1.1", {
     hasSupabaseUrl: !!db.url,
     hasAnonKey: !!db.anonKey,
     hasServiceRoleKey: !!db.serviceRoleKey,

@@ -8,6 +8,8 @@ import { socialRouter } from "./routes/social";
 import { postsRouter } from "./routes/posts";
 import { analyticsRouter } from "./routes/analytics";
 
+console.log("[ROUTER] Initializing app router v1.1");
+
 export const appRouter = createTRPCRouter({
   example: exampleRouter,
   user: userRouter,
