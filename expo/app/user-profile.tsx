@@ -499,23 +499,11 @@ export default function UserProfileScreen() {
   const { trips: ownTrips } = useTrips();
   const { convertSpeed, convertDistance, getSpeedLabel, getDistanceLabel, colors } = useSettings();
   const [expandedCarKey, setExpandedCarKey] = useState<string | null>(null);
-  const [avatarError, setAvatarError] = useState(false);
   const { unlockedAchievements, unlockedCount, totalCount, streak } = useAchievements();
 
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const isOwnProfile = !userId || userId === user?.id;
-
-  useEffect(() => {
-    setAvatarError(false);
-  }, [userId]);
-
-  useEffect(() => {
-    if (profileUser?.profilePicture) {
-      console.log('[USER-PROFILE] Profile picture URL:', profileUser.profilePicture);
-      setAvatarError(false);
-    }
-  }, [profileUser?.profilePicture]);
 
   const remoteAchievementsQuery = trpc.social.getUserAchievements.useQuery(
     { userId: userId || '' },
@@ -596,10 +584,9 @@ export default function UserProfileScreen() {
 
     if (!isOwnProfile && remoteProfileQuery.data) {
       const p = remoteProfileQuery.data;
-      console.log('[USER-PROFILE] Remote profile data - profilePicture:', p.profilePicture, 'displayName:', p.displayName);
       return {
         displayName: p.displayName,
-        profilePicture: (p.profilePicture && p.profilePicture.length > 0) ? p.profilePicture : undefined,
+        profilePicture: p.profilePicture ?? undefined,
         country: p.country,
         city: p.city,
         carBrand: p.carBrand,
@@ -761,19 +748,12 @@ export default function UserProfileScreen() {
       <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.profileHeader}>
           <View style={styles.avatarWrapper}>
-            {profileUser.profilePicture && profileUser.profilePicture.length > 0 && !avatarError ? (
-              <Image
-                source={{ uri: profileUser.profilePicture }}
-                style={styles.avatar}
-                onError={() => {
-                  console.log('[USER-PROFILE] Avatar failed to load:', profileUser.profilePicture);
-                  setAvatarError(true);
-                }}
-              />
+            {profileUser.profilePicture ? (
+              <Image source={{ uri: profileUser.profilePicture }} style={styles.avatar} />
             ) : (
               <View style={styles.avatarPlaceholder}>
                 <Text style={styles.avatarInitial}>
-                  {profileUser.displayName[0]?.toUpperCase() || '?'}
+                  {profileUser.displayName[0].toUpperCase()}
                 </Text>
               </View>
             )}
