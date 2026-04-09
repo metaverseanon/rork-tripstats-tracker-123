@@ -444,7 +444,7 @@ export const socialRouter = createTRPCRouter({
         return feedRows.map(row => ({
           id: row.id,
           userId: row.user_id,
-          userName: userMap.get(row.user_id)?.displayName ?? "Unknown",
+          userName: userMap.get(row.user_id)?.displayName ?? "Driver",
           userProfilePicture: userMap.get(row.user_id)?.profilePicture,
           type: row.type,
           tripId: row.trip_id,
@@ -614,7 +614,7 @@ export const socialRouter = createTRPCRouter({
           const u = userMap.get(visitorId);
           return {
             userId: visitorId,
-            userName: u?.display_name ?? "Unknown",
+            userName: u?.display_name || 'Driver',
             userProfilePicture: u?.profile_picture,
             achievementCount: count,
             totalAchievements,
@@ -800,14 +800,14 @@ export const socialRouter = createTRPCRouter({
 
         const discoverUserIds = [...new Set(selected.map(r => r.user_id))];
         const idsParam = discoverUserIds.map(id => `"${id}"`).join(',');
-        const usersUrl = `${getSupabaseRestUrl("users")}?id=in.(${idsParam})&select=id,display_name,car_brand,car_model,country,city,profile_picture`;
+        const usersUrl = `${getSupabaseRestUrl("users")}?id=in.(${idsParam})&select=id,display_name,email,car_brand,car_model,country,city,profile_picture`;
         const usersResp = await fetch(usersUrl, { method: "GET", headers: getSupabaseHeaders() });
         const allUsers: Record<string, any>[] = usersResp.ok ? await usersResp.json() : [];
 
         const userMap = new Map<string, { displayName: string; carBrand?: string; carModel?: string; profilePicture?: string; country?: string; city?: string }>();
         for (const u of allUsers) {
           userMap.set(u.id, {
-            displayName: u.display_name,
+            displayName: u.display_name || u.email?.split('@')[0] || 'Driver',
             carBrand: u.car_brand,
             carModel: u.car_model,
             profilePicture: u.profile_picture,
@@ -839,7 +839,7 @@ export const socialRouter = createTRPCRouter({
         return selected.map(row => ({
           id: row.id,
           userId: row.user_id,
-          userName: userMap.get(row.user_id)?.displayName ?? "Unknown",
+          userName: userMap.get(row.user_id)?.displayName ?? "Driver",
           userProfilePicture: userMap.get(row.user_id)?.profilePicture,
           type: row.type,
           tripId: row.trip_id,

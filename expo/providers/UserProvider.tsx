@@ -96,6 +96,40 @@ export const [UserProvider, useUser] = createContextHook(() => {
     }
   }, [user, isLoading]);
 
+  const profileSyncedRef = useRef(false);
+
+  useEffect(() => {
+    const ensureUserInBackend = async () => {
+      if (profileSyncedRef.current) return;
+      profileSyncedRef.current = true;
+
+      const currentUser = userRef.current;
+      if (!currentUser?.id || !currentUser?.displayName) return;
+
+      try {
+        console.log('[USER] Ensuring user exists in backend DB:', currentUser.id, currentUser.displayName);
+        await trpcClient.user.ensureUser.mutate({
+          id: currentUser.id,
+          email: currentUser.email || '',
+          displayName: currentUser.displayName,
+          country: currentUser.country,
+          city: currentUser.city,
+          carBrand: currentUser.carBrand,
+          carModel: currentUser.carModel,
+          bio: currentUser.bio,
+          profilePicture: currentUser.profilePicture || null,
+        });
+        console.log('[USER] ensureUser sync complete');
+      } catch (error) {
+        console.error('[USER] ensureUser sync failed:', error);
+      }
+    };
+
+    if (user && !isLoading) {
+      void ensureUserInBackend();
+    }
+  }, [user, isLoading]);
+
   useEffect(() => {
     const syncTimezone = async () => {
       const currentUser = userRef.current;

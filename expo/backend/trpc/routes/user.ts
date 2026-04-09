@@ -1136,4 +1136,84 @@ export const userRouter = createTRPCRouter({
       console.log('[FEEDBACK] Sent successfully from', input.email);
       return { success: true };
     }),
+
+  ensureUser: publicProcedure
+    .input(z.object({
+      id: z.string(),
+      email: z.string(),
+      displayName: z.string(),
+      country: z.string().optional(),
+      city: z.string().optional(),
+      carBrand: z.string().optional(),
+      carModel: z.string().optional(),
+      bio: z.string().optional(),
+      profilePicture: z.string().nullable().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      console.log("[USER] ensureUser called for:", input.id, input.displayName);
+      if (!isDbConfigured()) return { success: false, error: "Database not configured" };
+
+      try {
+        const checkUrl = `${getSupabaseRestUrl("users")}?id=eq.${encodeURIComponent(input.id)}&select=id,display_name&limit=1`;
+        const checkResp = await fetch(checkUrl, { method: "GET", headers: getSupabaseHeaders() });
+
+        if (checkResp.ok) {
+          const existing = await checkResp.json();
+          if (existing.length > 0) {
+            const currentName = existing[0].display_name;
+            if (!currentName || currentName !== input.displayName) {
+              console.log("[USER] Updating display_name from", currentName, "to", input.displayName);
+              const updates: Record<string, unknown> = { display_name: input.displayName };
+              if (input.country) updates.country = input.country;
+              if (input.city) updates.city = input.city;
+              if (input.carBrand) updates.car_brand = input.carBrand;
+              if (input.carModel) updates.car_model = input.carModel;
+              if (input.bio) updates.bio = input.bio;
+              if (input.profilePicture !== undefined) updates.profile_picture = input.profilePicture;
+
+              const patchUrl = `${getSupabaseRestUrl("users")}?id=eq.${encodeURIComponent(input.id)}`;
+              await fetch(patchUrl, {
+                method: "PATCH",
+                headers: getSupabaseHeaders(),
+                body: JSON.stringify(updates),
+              });
+            }
+            return { success: true, action: "updated" };
+          }
+        }
+
+        console.log("[USER] User not found in DB, inserting:", input.id);
+        const dbUser: Record<string, unknown> = {
+          id: input.id,
+          email: input.email,
+          display_name: input.displayName,
+          country: input.country,
+          city: input.city,
+          car_brand: input.carBrand,
+          car_model: input.carModel,
+          bio: input.bio,
+          profile_picture: input.profilePicture || null,
+          created_at: Date.now(),
+          welcome_email_sent: false,
+        };
+
+        const resp = await fetch(getSupabaseRestUrl("users"), {
+          method: "POST",
+          headers: getSupabaseHeaders(),
+          body: JSON.stringify(dbUser),
+        });
+
+        if (!resp.ok) {
+          const err = await resp.text();
+          console.error("[USER] ensureUser insert failed:", err);
+          return { success: false, error: err };
+        }
+
+        console.log("[USER] User inserted via ensureUser:", input.id);
+        return { success: true, action: "inserted" };
+      } catch (error) {
+        console.error("[USER] ensureUser error:", error);
+        return { success: false, error: "Network error" };
+      }
+    }),
 });
