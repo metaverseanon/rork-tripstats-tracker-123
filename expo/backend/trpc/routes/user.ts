@@ -453,6 +453,58 @@ async function getAllUsers(): Promise<StoredUser[]> {
   }
 }
 
+async function getUserById(userId: string): Promise<StoredUser | null> {
+  if (!isDbConfigured()) {
+    console.log("[DB] Database not configured");
+    return null;
+  }
+
+  try {
+    const url = `${getSupabaseRestUrl("users")}?id=eq.${encodeURIComponent(userId)}&limit=1`;
+    const response = await fetch(url, {
+      method: "GET",
+      headers: getSupabaseHeaders(),
+    });
+
+    if (!response.ok) {
+      console.error("Failed to fetch user by id");
+      return null;
+    }
+
+    const data = await response.json();
+    if (!data || data.length === 0) return null;
+
+    const row = data[0] as Record<string, unknown>;
+    return {
+      id: row.id as string,
+      email: row.email as string,
+      displayName: row.display_name as string,
+      passwordHash: row.password_hash as string | undefined,
+      country: row.country as string | undefined,
+      city: row.city as string | undefined,
+      carBrand: row.car_brand as string | undefined,
+      carModel: row.car_model as string | undefined,
+      bio: row.bio as string | undefined,
+      profilePicture: row.profile_picture as string | null | undefined,
+      carPicture: row.car_picture as string | null | undefined,
+      cars: row.cars ? (typeof row.cars === 'string' ? JSON.parse(row.cars as string) : row.cars) as StoredCarData[] : null,
+      createdAt: row.created_at ? new Date(row.created_at as string).getTime() : Date.now(),
+      welcomeEmailSent: row.welcome_email_sent as boolean,
+      pushToken: row.push_token as string | null | undefined,
+      timezone: row.timezone as string | undefined,
+      weeklyRecapEnabled: row.weekly_recap_enabled as boolean | undefined,
+      latitude: row.latitude as number | null | undefined,
+      longitude: row.longitude as number | null | undefined,
+      locationUpdatedAt: row.location_updated_at as number | null | undefined,
+      speedUnit: row.speed_unit as string | undefined,
+      distanceUnit: row.distance_unit as string | undefined,
+    };
+  } catch (error) {
+    console.error("Error fetching user by id:", error);
+    return null;
+  }
+}
+
 async function getUserByEmail(email: string): Promise<StoredUser | null> {
   if (!isDbConfigured()) {
     console.log("[DB] Database not configured");
@@ -1062,8 +1114,7 @@ export const userRouter = createTRPCRouter({
     }))
     .query(async ({ input }) => {
       console.log("[USER] Fetching public profile for:", input.userId);
-      const users = await getAllUsers();
-      const foundUser = users.find(u => u.id === input.userId);
+      const foundUser = await getUserById(input.userId);
       if (!foundUser) {
         console.log("[USER] User not found:", input.userId);
         return null;
@@ -1088,8 +1139,7 @@ export const userRouter = createTRPCRouter({
       userId: z.string(),
     }))
     .query(async ({ input }) => {
-      const users = await getAllUsers();
-      const user = users.find(u => u.id === input.userId);
+      const user = await getUserById(input.userId);
       return { enabled: user?.weeklyRecapEnabled ?? true };
     }),
 
