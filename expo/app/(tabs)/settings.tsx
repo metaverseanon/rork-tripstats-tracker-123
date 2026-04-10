@@ -2,18 +2,18 @@ import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Linking, Image, S
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { router } from 'expo-router';
-import { ChevronRight, Gauge, Ruler, FileText, Shield, User, Car, Sun, Moon, HelpCircle, Bell, Mail, MessageSquare, X, Send, Check, Trophy, Instagram, Link2, Unlink, ImageIcon, Share2 } from 'lucide-react-native';
+import { ChevronRight, Gauge, Ruler, FileText, Shield, User, Car, Sun, Moon, HelpCircle, Bell, Mail, MessageSquare, X, Send, Check, Trophy, Instagram, Link2, Unlink, ImageIcon, Share2, Trash2 } from 'lucide-react-native';
 import { useSettings, SpeedUnit, DistanceUnit } from '@/providers/SettingsProvider';
 import { useUser } from '@/providers/UserProvider';
 import { useNotifications } from '@/providers/NotificationProvider';
 import { ThemeType } from '@/constants/colors';
 import { useAchievements } from '@/providers/AchievementProvider';
 import { useState, useEffect } from 'react';
-import { trpc } from '@/lib/trpc';
+import { trpc, trpcClient } from '@/lib/trpc';
 
 export default function SettingsScreen() {
   const { settings, colors, setSpeedUnit, setDistanceUnit, setTheme } = useSettings();
-  const { user, isAuthenticated, getCarDisplayName, updateSocialAccounts } = useUser();
+  const { user, isAuthenticated, getCarDisplayName, updateSocialAccounts, signOut } = useUser();
   const { notificationsEnabled, registerForPushNotifications, disableNotifications } = useNotifications();
   const { unlockedCount, totalCount } = useAchievements();
 
@@ -542,6 +542,23 @@ export default function SettingsScreen() {
       fontWeight: '500' as const,
       color: colors.text,
     },
+    deleteAccountButton: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      justifyContent: 'center' as const,
+      gap: 8,
+      paddingVertical: 14,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: '#FF3B3040',
+      backgroundColor: '#FF3B3010',
+      marginBottom: 32,
+    },
+    deleteAccountText: {
+      fontSize: 16,
+      fontWeight: '600' as const,
+      color: '#FF3B30',
+    },
   });
 
   return (
@@ -941,6 +958,44 @@ export default function SettingsScreen() {
             <ChevronRight size={20} color={colors.textLight} />
           </TouchableOpacity>
         </View>
+
+        {isAuthenticated && (
+          <>
+            <Text style={styles.sectionTitle}>Danger Zone</Text>
+            <TouchableOpacity
+              style={styles.deleteAccountButton}
+              onPress={() => {
+                Alert.alert(
+                  'Delete Account',
+                  'Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently removed.',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Delete',
+                      style: 'destructive',
+                      onPress: async () => {
+                        try {
+                          if (user?.id) {
+                            await trpcClient.user.deleteAccount.mutate({ userId: user.id });
+                            console.log('[SETTINGS] Account deleted from backend');
+                          }
+                        } catch (error) {
+                          console.error('[SETTINGS] Backend delete failed:', error);
+                        }
+                        await signOut();
+                        router.replace('/' as any);
+                      },
+                    },
+                  ]
+                );
+              }}
+              activeOpacity={0.7}
+            >
+              <Trash2 size={18} color="#FF3B30" />
+              <Text style={styles.deleteAccountText}>Delete Account</Text>
+            </TouchableOpacity>
+          </>
+        )}
 
         <View style={styles.footer}>
           <Image
