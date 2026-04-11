@@ -1266,4 +1266,95 @@ export const userRouter = createTRPCRouter({
         return { success: false, error: "Network error" };
       }
     }),
+
+  deleteAccount: publicProcedure
+    .input(z.object({
+      userId: z.string(),
+    }))
+    .mutation(async ({ input }) => {
+      console.log("[DELETE_ACCOUNT] Starting full account deletion for user:", input.userId);
+
+      if (!isDbConfigured()) {
+        return { success: false, error: "Database not configured" };
+      }
+
+      const tables = [
+        { name: "post_comments", column: "user_id" },
+        { name: "post_revs", column: "user_id" },
+        { name: "activity_revs", column: "user_id" },
+        { name: "notifications", column: "user_id" },
+        { name: "notifications", column: "from_user_id" },
+        { name: "user_achievements", column: "user_id" },
+        { name: "follows", column: "follower_id" },
+        { name: "follows", column: "following_id" },
+        { name: "posts", column: "user_id" },
+        { name: "activity_feed", column: "user_id" },
+        { name: "trips", column: "user_id" },
+        { name: "password_reset_codes", column: "email" },
+      ];
+
+      const errors: string[] = [];
+
+      const user = await getUserById(input.userId);
+      const userEmail = user?.email;
+
+      for (const table of tables) {
+        try {
+          let filterValue = input.userId;
+          if (table.column === "email" && userEmail) {
+            filterValue = userEmail.toLowerCase();
+          } else if (table.column === "email" && !userEmail) {
+            console.log(`[DELETE_ACCOUNT] Skipping ${table.name} (no email found)`);
+            continue;
+          }
+
+          const url = `${getSupabaseRestUrl(table.name)}?${table.column}=eq.${encodeURIComponent(filterValue)}`;
+          console.log(`[DELETE_ACCOUNT] Deleting from ${table.name} where ${table.column}=${filterValue}`);
+
+          const response = await fetch(url, {
+            method: "DELETE",
+            headers: getSupabaseHeaders(),
+          });
+
+          if (!response.ok) {
+            const errText = await response.text();
+            console.error(`[DELETE_ACCOUNT] Failed to delete from ${table.name}:`, errText);
+            errors.push(`${table.name}: ${errText}`);
+          } else {
+            console.log(`[DELETE_ACCOUNT] Deleted from ${table.name} successfully`);
+          }
+        } catch (error) {
+          console.error(`[DELETE_ACCOUNT] Error deleting from ${table.name}:`, error);
+          errors.push(`${table.name}: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+
+      try {
+        const url = `${getSupabaseRestUrl("users")}?id=eq.${encodeURIComponent(input.userId)}`;
+        console.log("[DELETE_ACCOUNT] Deleting user record:", input.userId);
+        const response = await fetch(url, {
+          method: "DELETE",
+          headers: getSupabaseHeaders(),
+        });
+
+        if (!response.ok) {
+          const errText = await response.text();
+          console.error("[DELETE_ACCOUNT] Failed to delete user record:", errText);
+          errors.push(`users: ${errText}`);
+        } else {
+          console.log("[DELETE_ACCOUNT] User record deleted successfully");
+        }
+      } catch (error) {
+        console.error("[DELETE_ACCOUNT] Error deleting user record:", error);
+        errors.push(`users: ${error instanceof Error ? error.message : String(error)}`);
+      }
+
+      if (errors.length > 0) {
+        console.error("[DELETE_ACCOUNT] Completed with errors:", errors);
+        return { success: true, partial: true, errors };
+      }
+
+      console.log("[DELETE_ACCOUNT] Account fully deleted for user:", input.userId);
+      return { success: true, partial: false };
+    }),
 });
