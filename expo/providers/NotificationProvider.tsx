@@ -241,14 +241,18 @@ export const [NotificationProvider, useNotifications] = createContextHook(() => 
       
       if (data?.type === 'new_follower' && data?.fromUserId) {
         console.log('[PUSH] New follower notification tapped, navigating to user profile:', data.fromUserId);
+        const userId = data.fromUserId as string;
         const tryNav = (attempt: number) => {
+          console.log('[PUSH] new_follower nav attempt', attempt, 'userId:', userId);
           try {
-            router.navigate({ pathname: '/user-profile' as any, params: { userId: data.fromUserId as string } });
-          } catch {
-            if (attempt < 5) setTimeout(() => tryNav(attempt + 1), 500);
+            router.push({ pathname: '/user-profile' as any, params: { userId } });
+            console.log('[PUSH] new_follower nav succeeded on attempt', attempt);
+          } catch (e) {
+            console.log('[PUSH] new_follower nav failed:', e);
+            if (attempt < 10) setTimeout(() => tryNav(attempt + 1), 600);
           }
         };
-        setTimeout(() => tryNav(1), 300);
+        setTimeout(() => tryNav(1), 800);
       } else if (data?.type === 'post_rev') {
         console.log('[PUSH] Post rev notification tapped, navigating to feed');
         const tryNav = (attempt: number) => {
@@ -306,14 +310,18 @@ export const [NotificationProvider, useNotifications] = createContextHook(() => 
           
           if (isRecent && data?.type === 'new_follower' && data?.fromUserId) {
             console.log('[PUSH] Cold start new follower notification, navigating to user profile:', data.fromUserId);
+            const userId = data.fromUserId as string;
             const tryNavigate = (attempt: number) => {
+              console.log('[PUSH] Cold start new_follower nav attempt', attempt, 'userId:', userId);
               try {
-                router.navigate({ pathname: '/user-profile' as any, params: { userId: data.fromUserId as string } });
+                router.push({ pathname: '/user-profile' as any, params: { userId } });
+                console.log('[PUSH] Cold start new_follower nav succeeded on attempt', attempt);
               } catch (e) {
-                if (attempt < 10) setTimeout(() => tryNavigate(attempt + 1), 600);
+                console.log('[PUSH] Cold start new_follower nav failed:', e);
+                if (attempt < 15) setTimeout(() => tryNavigate(attempt + 1), 600);
               }
             };
-            setTimeout(() => tryNavigate(1), 1500);
+            setTimeout(() => tryNavigate(1), 2000);
           } else if (isRecent && data?.type === 'post_rev') {
             console.log('[PUSH] Cold start post rev notification, navigating to feed');
             const tryNavigate = (attempt: number) => {
