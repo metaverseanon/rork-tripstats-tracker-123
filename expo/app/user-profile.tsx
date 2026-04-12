@@ -871,7 +871,7 @@ export default function UserProfileScreen() {
             {isOwnProfile && (
               <TouchableOpacity style={styles.profileActionButton} onPress={handleShowQR} activeOpacity={0.7} testID="qr-code-button">
                 <QrCode size={16} color={colors.accent} />
-                <Text style={styles.profileActionText}>QR Code</Text>
+                <Text style={styles.profileActionText}>Share Profile</Text>
               </TouchableOpacity>
             )}
           </View>

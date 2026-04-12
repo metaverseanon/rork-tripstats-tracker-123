@@ -695,8 +695,8 @@ export default function SettingsScreen() {
                     <QrCode size={20} color={colors.accent} />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.linkText}>My QR Code</Text>
-                    <Text style={styles.notificationDescription}>Show your QR code for others to scan</Text>
+                    <Text style={styles.linkText}>Share Profile</Text>
+                    <Text style={styles.notificationDescription}>Share your profile link or QR code</Text>
                   </View>
                 </View>
                 <ChevronRight size={20} color={colors.textLight} />
@@ -1197,7 +1197,7 @@ export default function SettingsScreen() {
         >
           <TouchableOpacity activeOpacity={1} style={styles.qrModalContent}>
             <View style={styles.qrModalHeader}>
-              <Text style={styles.qrModalTitle}>My QR Code</Text>
+              <Text style={styles.qrModalTitle}>Share Profile</Text>
               <TouchableOpacity
                 onPress={() => setShowQRModal(false)}
                 hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
