@@ -238,6 +238,83 @@ const MAX_VALID_TOP_SPEED = 500;
 const MAX_VALID_ACCELERATION = 30;
 const MAX_VALID_G_FORCE = 4.0;
 
+const COUNTRY_ALTERNATE_NAMES: Record<string, string[]> = {
+  'Croatia': ['hrvatska', 'croatia'],
+  'Germany': ['deutschland', 'germany'],
+  'Spain': ['españa', 'spain'],
+  'France': ['france'],
+  'Italy': ['italia', 'italy'],
+  'Poland': ['polska', 'poland'],
+  'Netherlands': ['nederland', 'netherlands'],
+  'Portugal': ['portugal'],
+  'Austria': ['österreich', 'austria'],
+  'Switzerland': ['schweiz', 'suisse', 'svizzera', 'switzerland'],
+  'Belgium': ['belgique', 'belgië', 'belgium'],
+  'Czech Republic': ['česko', 'czech republic', 'czechia', 'czech'],
+  'Hungary': ['magyarország', 'hungary'],
+  'Slovakia': ['slovensko', 'slovakia'],
+  'Slovenia': ['slovenija', 'slovenia'],
+  'Serbia': ['srbija', 'serbia'],
+  'Bosnia and Herzegovina': ['bosna i hercegovina', 'bosnia and herzegovina', 'bosnia'],
+  'Montenegro': ['crna gora', 'montenegro'],
+  'North Macedonia': ['северна македонија', 'north macedonia', 'macedonia'],
+  'Albania': ['shqipëria', 'albania'],
+  'Greece': ['ελλάδα', 'greece'],
+  'Bulgaria': ['българия', 'bulgaria'],
+  'Romania': ['românia', 'romania'],
+  'Ukraine': ['україна', 'ukraine'],
+  'Russia': ['россия', 'russia'],
+  'Turkey': ['türkiye', 'turkey'],
+  'Sweden': ['sverige', 'sweden'],
+  'Norway': ['norge', 'norway'],
+  'Denmark': ['danmark', 'denmark'],
+  'Finland': ['suomi', 'finland'],
+  'Japan': ['日本', 'japan'],
+  'China': ['中国', 'china'],
+  'South Korea': ['대한민국', 'south korea'],
+  'Brazil': ['brasil', 'brazil'],
+  'Mexico': ['méxico', 'mexico'],
+  'Argentina': ['argentina'],
+};
+
+function getCountryFilterNames(filterCountry: string): string[] {
+  const names = new Set<string>();
+  names.add(filterCountry);
+  
+  const alternates = COUNTRY_ALTERNATE_NAMES[filterCountry];
+  if (alternates) {
+    for (const alt of alternates) {
+      names.add(alt);
+      names.add(alt.charAt(0).toUpperCase() + alt.slice(1));
+    }
+  }
+  
+  if (filterCountry === 'Czech Republic') {
+    names.add('Czechia');
+    names.add('Česko');
+    names.add('Czech Republic');
+  }
+  if (filterCountry === 'Turkey') {
+    names.add('Türkiye');
+    names.add('Turkey');
+  }
+  if (filterCountry === 'North Macedonia') {
+    names.add('Macedonia');
+    names.add('North Macedonia');
+  }
+  
+  return [...names];
+}
+
+function buildCountryFilter(country: string): string {
+  const names = getCountryFilterNames(country);
+  if (names.length === 1) {
+    return `country=eq.${encodeURIComponent(names[0])}`;
+  }
+  const orConditions = names.map(n => `country.eq.${encodeURIComponent(n)}`).join(',');
+  return `or=(${orConditions})`;
+}
+
 function sanitizeAccelTime(value: number | undefined, minValid: number, label: string): number | undefined {
   if (value === undefined || value <= 0) return undefined;
   if (value < minValid) {
@@ -399,7 +476,7 @@ async function getTotalDistanceLeaderboard(input: {
     const params: string[] = ["select=id,user_id,user_name,user_profile_picture,start_time,end_time,distance,duration,avg_speed,top_speed,corners,car_model,acceleration,max_g_force,country,city,time_0_to_100,time_0_to_200,time_0_to_300,route_points", "distance=gt.0"];
 
     if (input.country) {
-      params.push(`country=eq.${encodeURIComponent(input.country)}`);
+      params.push(buildCountryFilter(input.country));
     }
     if (input.city) {
       params.push(`city=eq.${encodeURIComponent(input.city)}`);
@@ -621,7 +698,7 @@ export const tripsRouter = createTRPCRouter({
         params.push("select=id,user_id,user_name,user_profile_picture,start_time,end_time,distance,duration,avg_speed,top_speed,corners,car_model,acceleration,max_g_force,country,city,time_0_to_100,time_0_to_200,time_0_to_300,route_points");
 
         if (input.country) {
-          params.push(`country=eq.${encodeURIComponent(input.country)}`);
+          params.push(buildCountryFilter(input.country));
         }
         if (input.city) {
           params.push(`city=eq.${encodeURIComponent(input.city)}`);
