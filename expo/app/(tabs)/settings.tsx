@@ -2,7 +2,8 @@ import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Linking, Image, S
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { router } from 'expo-router';
-import { ChevronRight, Gauge, Ruler, FileText, Shield, User, Car, Sun, Moon, HelpCircle, Bell, Mail, MessageSquare, X, Send, Check, Trophy, Instagram, Link2, Unlink, ImageIcon, Share2, Trash2 } from 'lucide-react-native';
+import { ChevronRight, Gauge, Ruler, FileText, Shield, User, Car, Sun, Moon, HelpCircle, Bell, Mail, MessageSquare, X, Send, Check, Trophy, Instagram, Link2, Unlink, ImageIcon, Share2, Trash2, QrCode, MapPin } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
 import { useSettings, SpeedUnit, DistanceUnit } from '@/providers/SettingsProvider';
 import { useUser } from '@/providers/UserProvider';
 import { useNotifications } from '@/providers/NotificationProvider';
@@ -25,6 +26,17 @@ export default function SettingsScreen() {
   const [socialModalVisible, setSocialModalVisible] = useState(false);
   const [socialPlatform, setSocialPlatform] = useState<'instagram' | 'tiktok'>('instagram');
   const [socialUsername, setSocialUsername] = useState('');
+  const [showQRModal, setShowQRModal] = useState(false);
+
+  const profileUrl = user?.id ? `https://redlineapp.io/profile/${user.id}` : '';
+  const qrCodeUrl = profileUrl ? `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(profileUrl)}&bgcolor=000000&color=FFFFFF&margin=16` : '';
+
+  const handleShowQR = () => {
+    if (Platform.OS !== 'web') {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    setShowQRModal(true);
+  };
 
 
   const weeklyRecapQuery = trpc.user.getWeeklyRecapEnabled.useQuery(
@@ -559,6 +571,84 @@ export default function SettingsScreen() {
       fontWeight: '600' as const,
       color: '#FF3B30',
     },
+    qrModalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0,0,0,0.7)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    qrModalContent: {
+      backgroundColor: colors.cardLight,
+      borderRadius: 24,
+      padding: 28,
+      alignItems: 'center' as const,
+      width: '85%',
+      maxWidth: 360,
+    },
+    qrModalHeader: {
+      flexDirection: 'row' as const,
+      justifyContent: 'space-between' as const,
+      alignItems: 'center' as const,
+      width: '100%',
+      marginBottom: 20,
+    },
+    qrModalTitle: {
+      fontSize: 18,
+      fontWeight: '700' as const,
+      color: colors.text,
+    },
+    qrCodeWrapper: {
+      backgroundColor: '#000',
+      borderRadius: 16,
+      padding: 16,
+      marginBottom: 16,
+      width: 280,
+      height: 280,
+      justifyContent: 'center' as const,
+      alignItems: 'center' as const,
+    },
+    qrCodeImage: {
+      width: 248,
+      height: 248,
+    },
+    qrUserName: {
+      fontSize: 18,
+      fontWeight: '700' as const,
+      color: colors.text,
+      marginBottom: 4,
+    },
+    qrLocationRow: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      gap: 4,
+      marginBottom: 8,
+    },
+    qrLocationText: {
+      fontSize: 13,
+      color: colors.textLight,
+    },
+    qrHint: {
+      fontSize: 12,
+      color: colors.textLight,
+      textAlign: 'center' as const,
+      marginTop: 4,
+      marginBottom: 16,
+      paddingHorizontal: 12,
+    },
+    qrShareButton: {
+      flexDirection: 'row' as const,
+      alignItems: 'center' as const,
+      backgroundColor: colors.accent,
+      paddingVertical: 10,
+      paddingHorizontal: 24,
+      borderRadius: 20,
+      gap: 8,
+    },
+    qrShareButtonText: {
+      color: '#fff',
+      fontSize: 14,
+      fontWeight: '600' as const,
+    },
   });
 
   return (
@@ -607,6 +697,19 @@ export default function SettingsScreen() {
                   <View style={{ flex: 1 }}>
                     <Text style={styles.linkText}>Share Profile</Text>
                     <Text style={styles.notificationDescription}>Share your profile link with others</Text>
+                  </View>
+                </View>
+                <ChevronRight size={20} color={colors.textLight} />
+              </TouchableOpacity>
+              <View style={styles.divider} />
+              <TouchableOpacity style={styles.linkItem} onPress={handleShowQR} activeOpacity={0.7}>
+                <View style={styles.linkContent}>
+                  <View style={[styles.settingIconContainer, { backgroundColor: colors.accent + '18' }]}>
+                    <QrCode size={20} color={colors.accent} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.linkText}>My QR Code</Text>
+                    <Text style={styles.notificationDescription}>Show your QR code for others to scan</Text>
                   </View>
                 </View>
                 <ChevronRight size={20} color={colors.textLight} />
@@ -1093,6 +1196,55 @@ export default function SettingsScreen() {
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+      <Modal
+        visible={showQRModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowQRModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.qrModalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowQRModal(false)}
+        >
+          <TouchableOpacity activeOpacity={1} style={styles.qrModalContent}>
+            <View style={styles.qrModalHeader}>
+              <Text style={styles.qrModalTitle}>My QR Code</Text>
+              <TouchableOpacity
+                onPress={() => setShowQRModal(false)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
+                <X size={22} color={colors.textLight} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.qrCodeWrapper}>
+              {qrCodeUrl ? (
+                <Image
+                  source={{ uri: qrCodeUrl }}
+                  style={styles.qrCodeImage}
+                  resizeMode="contain"
+                />
+              ) : (
+                <ActivityIndicator size="large" color={colors.accent} />
+              )}
+            </View>
+            <Text style={styles.qrUserName}>{user?.displayName}</Text>
+            {(user?.city || user?.country) && (
+              <View style={styles.qrLocationRow}>
+                <MapPin size={12} color={colors.accent} />
+                <Text style={styles.qrLocationText}>
+                  {user?.city}{user?.city && user?.country ? ', ' : ''}{user?.country}
+                </Text>
+              </View>
+            )}
+            <Text style={styles.qrHint}>Point your camera at this code to open your profile</Text>
+            <TouchableOpacity style={styles.qrShareButton} onPress={handleShareProfile} activeOpacity={0.7}>
+              <Share2 size={16} color="#fff" />
+              <Text style={styles.qrShareButtonText}>Share Link</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
     </SafeAreaView>
   );
