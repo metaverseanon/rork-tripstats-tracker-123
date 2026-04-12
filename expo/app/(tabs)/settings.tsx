@@ -686,6 +686,20 @@ export default function SettingsScreen() {
             <ChevronRight size={20} color={colors.textLight} />
           </TouchableOpacity>
 
+          {isAuthenticated && carName && (
+            <>
+              <View style={styles.divider} />
+              <View style={styles.carItem}>
+                <View style={styles.linkContent}>
+                  <View style={styles.settingIconContainer}>
+                    <Car size={20} color={colors.accent} />
+                  </View>
+                  <Text style={styles.linkText}>{carName}</Text>
+                </View>
+              </View>
+            </>
+          )}
+
           {isAuthenticated && (
             <>
               <View style={styles.divider} />
@@ -701,20 +715,6 @@ export default function SettingsScreen() {
                 </View>
                 <ChevronRight size={20} color={colors.textLight} />
               </TouchableOpacity>
-            </>
-          )}
-
-          {isAuthenticated && carName && (
-            <>
-              <View style={styles.divider} />
-              <View style={styles.carItem}>
-                <View style={styles.linkContent}>
-                  <View style={styles.settingIconContainer}>
-                    <Car size={20} color={colors.accent} />
-                  </View>
-                  <Text style={styles.linkText}>{carName}</Text>
-                </View>
-              </View>
             </>
           )}
         </View>
