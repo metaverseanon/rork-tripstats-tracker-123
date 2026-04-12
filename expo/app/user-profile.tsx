@@ -522,25 +522,6 @@ export default function UserProfileScreen() {
     return `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(profileUrl)}&bgcolor=000000&color=FFFFFF&margin=16`;
   }, [profileUrl]);
 
-  const handleShareProfile = useCallback(async () => {
-    const targetName = profileUser?.displayName || 'this driver';
-    try {
-      await Share.share({
-        message: `Check out ${targetName}'s profile on RedLine! ${profileUrl}`,
-        url: profileUrl,
-      });
-    } catch (error) {
-      console.error('[PROFILE] Share error:', error);
-    }
-  }, [profileUser?.displayName, profileUrl]);
-
-  const handleShowQR = useCallback(() => {
-    if (Platform.OS !== 'web') {
-      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
-    setShowQRModal(true);
-  }, []);
-
   const remoteAchievementsQuery = trpc.social.getUserAchievements.useQuery(
     { userId: userId || '' },
     { enabled: !isOwnProfile && !!userId }
@@ -602,6 +583,13 @@ export default function UserProfileScreen() {
     { enabled: !isOwnProfile && !!userId }
   );
 
+  const handleShowQR = useCallback(() => {
+    if (Platform.OS !== 'web') {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    setShowQRModal(true);
+  }, []);
+
   const profileUser = useMemo((): ProfileData | null => {
     if (isOwnProfile && user) {
       return {
@@ -636,6 +624,18 @@ export default function UserProfileScreen() {
 
     return null;
   }, [isOwnProfile, user, remoteProfileQuery.data]);
+
+  const handleShareProfile = useCallback(async () => {
+    const targetName = profileUser?.displayName || 'this driver';
+    try {
+      await Share.share({
+        message: `Check out ${targetName}'s profile on RedLine! ${profileUrl}`,
+        url: profileUrl,
+      });
+    } catch (error) {
+      console.error('[PROFILE] Share error:', error);
+    }
+  }, [profileUser?.displayName, profileUrl]);
 
   const profileTrips = useMemo(() => {
     if (isOwnProfile) return ownTrips;
