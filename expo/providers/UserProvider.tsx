@@ -99,15 +99,14 @@ export const [UserProvider, useUser] = createContextHook(() => {
   const profileSyncedRef = useRef(false);
 
   useEffect(() => {
-    const ensureUserInBackend = async () => {
+    const ensureUserInBackend = async (retryCount = 0) => {
       if (profileSyncedRef.current) return;
-      profileSyncedRef.current = true;
 
       const currentUser = userRef.current;
       if (!currentUser?.id || !currentUser?.displayName) return;
 
       try {
-        console.log('[USER] Ensuring user exists in backend DB:', currentUser.id, currentUser.displayName);
+        console.log('[USER] Ensuring user exists in backend DB:', currentUser.id, currentUser.displayName, retryCount > 0 ? `(retry ${retryCount})` : '');
         await trpcClient.user.ensureUser.mutate({
           id: currentUser.id,
           email: currentUser.email || '',
@@ -119,9 +118,17 @@ export const [UserProvider, useUser] = createContextHook(() => {
           bio: currentUser.bio,
           profilePicture: currentUser.profilePicture || null,
         });
+        profileSyncedRef.current = true;
         console.log('[USER] ensureUser sync complete');
       } catch (error) {
-        console.error('[USER] ensureUser sync failed:', error);
+        console.warn('[USER] ensureUser sync failed (attempt', retryCount + 1, '):', error);
+        if (retryCount < 3) {
+          const delay = Math.min(2000 * Math.pow(2, retryCount), 10000);
+          console.log('[USER] Retrying ensureUser in', delay, 'ms');
+          setTimeout(() => void ensureUserInBackend(retryCount + 1), delay);
+        } else {
+          console.error('[USER] ensureUser sync failed after all retries');
+        }
       }
     };
 
