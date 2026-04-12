@@ -99,15 +99,18 @@ export const [UserProvider, useUser] = createContextHook(() => {
   const profileSyncedRef = useRef(false);
 
   useEffect(() => {
+    let cancelled = false;
+    const maxRetries = 5;
+
     const ensureUserInBackend = async (retryCount = 0) => {
-      if (profileSyncedRef.current) return;
+      if (cancelled || profileSyncedRef.current) return;
 
       const currentUser = userRef.current;
       if (!currentUser?.id || !currentUser?.displayName) return;
 
       try {
         console.log('[USER] Ensuring user exists in backend DB:', currentUser.id, currentUser.displayName, retryCount > 0 ? `(retry ${retryCount})` : '');
-        await trpcClient.user.ensureUser.mutate({
+        const result = await trpcClient.user.ensureUser.mutate({
           id: currentUser.id,
           email: currentUser.email || '',
           displayName: currentUser.displayName,
@@ -118,16 +121,26 @@ export const [UserProvider, useUser] = createContextHook(() => {
           bio: currentUser.bio,
           profilePicture: currentUser.profilePicture || null,
         });
+        if (result && 'success' in result && !result.success) {
+          console.warn('[USER] ensureUser returned failure:', result);
+          throw new Error(('error' in result ? String(result.error) : 'Unknown backend error'));
+        }
         profileSyncedRef.current = true;
         console.log('[USER] ensureUser sync complete');
       } catch (error) {
-        console.warn('[USER] ensureUser sync failed (attempt', retryCount + 1, '):', error);
-        if (retryCount < 3) {
-          const delay = Math.min(2000 * Math.pow(2, retryCount), 10000);
-          console.log('[USER] Retrying ensureUser in', delay, 'ms');
-          setTimeout(() => void ensureUserInBackend(retryCount + 1), delay);
+        if (cancelled) return;
+        const msg = error instanceof Error ? error.message : 'Unknown error';
+        console.warn(`[USER] ensureUser sync failed (attempt ${retryCount + 1}/${maxRetries}):`, msg);
+        if (retryCount < maxRetries - 1) {
+          const delay = Math.min(3000 * Math.pow(1.5, retryCount), 15000);
+          console.log('[USER] Retrying ensureUser in', Math.round(delay), 'ms');
+          await new Promise(resolve => setTimeout(resolve, delay));
+          if (!cancelled) {
+            await ensureUserInBackend(retryCount + 1);
+          }
         } else {
-          console.error('[USER] ensureUser sync failed after all retries');
+          console.warn('[USER] ensureUser sync failed after all retries, will retry on next app focus');
+          profileSyncedRef.current = false;
         }
       }
     };
@@ -135,6 +148,8 @@ export const [UserProvider, useUser] = createContextHook(() => {
     if (user && !isLoading) {
       void ensureUserInBackend();
     }
+
+    return () => { cancelled = true; };
   }, [user, isLoading]);
 
   useEffect(() => {
