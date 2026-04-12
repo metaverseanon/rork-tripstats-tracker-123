@@ -355,33 +355,16 @@ export default function FeedScreen() {
     }));
 
     const seenIds = new Set<string>();
-    const dedupedDrives: DiscoverItem[] = [];
-    for (const d of drives) {
-      if (!seenIds.has(d.data.id)) {
-        seenIds.add(d.data.id);
-        dedupedDrives.push(d);
-      }
-    }
-    const dedupedPosts: DiscoverItem[] = [];
-    for (const p of posts) {
-      if (!seenIds.has(p.data.id)) {
-        seenIds.add(p.data.id);
-        dedupedPosts.push(p);
+    const combined: DiscoverItem[] = [];
+    for (const item of [...drives, ...posts]) {
+      if (!seenIds.has(item.data.id)) {
+        seenIds.add(item.data.id);
+        combined.push(item);
       }
     }
 
-    const interleaved: DiscoverItem[] = [];
-    let di = 0;
-    let pi = 0;
-    while (di < dedupedDrives.length || pi < dedupedPosts.length) {
-      if (di < dedupedDrives.length) {
-        interleaved.push(dedupedDrives[di++]);
-      }
-      if (pi < dedupedPosts.length) {
-        interleaved.push(dedupedPosts[pi++]);
-      }
-    }
-    return interleaved;
+    combined.sort((a, b) => b.data.createdAt - a.data.createdAt);
+    return combined;
   }, [discoverDrivesQuery.data, discoverPostsQuery.data]);
 
   const renderActivityItem = useCallback((item: FeedItem, showFollowButton?: boolean, animIndex?: number) => {
