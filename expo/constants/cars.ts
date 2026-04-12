@@ -313,7 +313,8 @@ export const CAR_BRANDS: CarBrand[] = [
       'ID.7 Pro', 'ID.7 Pro S', 'ID.7 GTX',
       'ID. Buzz Pro', 'ID. Buzz Pro S', 'ID. Buzz GTX',
       'Scirocco 1.4 TSI', 'Scirocco 2.0 TSI', 'Scirocco R',
-      'Beetle 1.2 TSI', 'Beetle 1.4 TSI', 'Beetle 2.0 TSI'
+      'Beetle 1.2 TSI', 'Beetle 1.4 TSI', 'Beetle 2.0 TSI',
+      'Sharan 1.8T', 'Sharan 1.9 TDI', 'Sharan 2.0 TDI', 'Sharan 2.8 VR6'
     ],
   },
   {
