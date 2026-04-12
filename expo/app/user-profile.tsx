@@ -12,9 +12,13 @@ import {
   ActivityIndicator,
   Animated,
   Alert,
+  Share,
+  Modal,
+  Dimensions,
 } from 'react-native';
 import { Stack, useLocalSearchParams, router } from 'expo-router';
-import { MapPin, Car, Zap, Navigation, Gauge, Activity, CornerDownRight, Timer, Route, Trophy, Calendar, ChevronDown, UserPlus, UserMinus, Flame, Flag, Users, Star, Rocket, Moon, Shield, Clock } from 'lucide-react-native';
+import { MapPin, Car, Zap, Navigation, Gauge, Activity, CornerDownRight, Timer, Route, Trophy, Calendar, ChevronDown, UserPlus, UserMinus, Flame, Flag, Users, Star, Rocket, Moon, Shield, Clock, Share2, QrCode, X } from 'lucide-react-native';
+import * as Linking from 'expo-linking';
 import { useAchievements } from '@/providers/AchievementProvider';
 import { ACHIEVEMENTS, ACHIEVEMENT_CATEGORIES } from '@/constants/achievements';
 import { AchievementCategory, UserAchievement } from '@/types/achievement';
@@ -505,6 +509,38 @@ export default function UserProfileScreen() {
 
   const isOwnProfile = !userId || userId === user?.id;
 
+  const [showQRModal, setShowQRModal] = useState(false);
+
+  const profileUrl = useMemo(() => {
+    const targetId = isOwnProfile ? user?.id : userId;
+    if (!targetId) return '';
+    return Linking.createURL('user-profile', { queryParams: { userId: targetId } });
+  }, [isOwnProfile, user?.id, userId]);
+
+  const qrCodeUrl = useMemo(() => {
+    if (!profileUrl) return '';
+    return `https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=${encodeURIComponent(profileUrl)}&bgcolor=000000&color=FFFFFF&margin=16`;
+  }, [profileUrl]);
+
+  const handleShareProfile = useCallback(async () => {
+    const targetName = profileUser?.displayName || 'this driver';
+    try {
+      await Share.share({
+        message: `Check out ${targetName}'s profile on RedLine! ${profileUrl}`,
+        url: profileUrl,
+      });
+    } catch (error) {
+      console.error('[PROFILE] Share error:', error);
+    }
+  }, [profileUser?.displayName, profileUrl]);
+
+  const handleShowQR = useCallback(() => {
+    if (Platform.OS !== 'web') {
+      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    setShowQRModal(true);
+  }, []);
+
   const remoteAchievementsQuery = trpc.social.getUserAchievements.useQuery(
     { userId: userId || '' },
     { enabled: !isOwnProfile && !!userId }
@@ -745,6 +781,56 @@ export default function UserProfileScreen() {
           headerTitleStyle: { fontSize: 16, fontWeight: '600' as const },
         }}
       />
+      <Modal
+        visible={showQRModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowQRModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.qrModalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowQRModal(false)}
+        >
+          <TouchableOpacity activeOpacity={1} style={styles.qrModalContent}>
+            <View style={styles.qrModalHeader}>
+              <Text style={styles.qrModalTitle}>Scan to Follow</Text>
+              <TouchableOpacity
+                onPress={() => setShowQRModal(false)}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              >
+                <X size={22} color={colors.textLight} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.qrCodeWrapper}>
+              {qrCodeUrl ? (
+                <Image
+                  source={{ uri: qrCodeUrl }}
+                  style={styles.qrCodeImage}
+                  resizeMode="contain"
+                />
+              ) : (
+                <ActivityIndicator size="large" color={colors.accent} />
+              )}
+            </View>
+            <Text style={styles.qrUserName}>{profileUser?.displayName}</Text>
+            {(profileUser?.city || profileUser?.country) && (
+              <View style={styles.qrLocationRow}>
+                <MapPin size={12} color={colors.accent} />
+                <Text style={styles.qrLocationText}>
+                  {profileUser?.city}{profileUser?.city && profileUser?.country ? ', ' : ''}{profileUser?.country}
+                </Text>
+              </View>
+            )}
+            <Text style={styles.qrHint}>Point your camera at this code to open this profile</Text>
+            <TouchableOpacity style={styles.qrShareButton} onPress={handleShareProfile} activeOpacity={0.7}>
+              <Share2 size={16} color="#fff" />
+              <Text style={styles.qrShareButtonText}>Share Link</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
       <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.profileHeader}>
           <View style={styles.avatarWrapper}>
@@ -776,6 +862,17 @@ export default function UserProfileScreen() {
               <Text style={styles.memberText}>Member since {memberSince}</Text>
             </View>
           ) : null}
+
+          <View style={styles.profileActions}>
+            <TouchableOpacity style={styles.profileActionButton} onPress={handleShareProfile} activeOpacity={0.7} testID="share-profile-button">
+              <Share2 size={16} color={colors.accent} />
+              <Text style={styles.profileActionText}>Share</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.profileActionButton} onPress={handleShowQR} activeOpacity={0.7} testID="qr-code-button">
+              <QrCode size={16} color={colors.accent} />
+              <Text style={styles.profileActionText}>QR Code</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.followRow}>
@@ -1336,5 +1433,109 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 16,
     fontFamily: 'Orbitron_500Medium',
     color: colors.textLight,
+  },
+  profileActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 12,
+  },
+  profileActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.accent + '15',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.accent + '30',
+  },
+  profileActionText: {
+    fontSize: 12,
+    fontFamily: 'Orbitron_600SemiBold',
+    color: colors.accent,
+  },
+  qrModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 30,
+  },
+  qrModalContent: {
+    backgroundColor: colors.card,
+    borderRadius: 24,
+    padding: 24,
+    width: '100%',
+    maxWidth: 340,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  qrModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 20,
+  },
+  qrModalTitle: {
+    fontSize: 16,
+    fontFamily: 'Orbitron_700Bold',
+    color: colors.text,
+  },
+  qrCodeWrapper: {
+    width: 240,
+    height: 240,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#000000',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  qrCodeImage: {
+    width: 240,
+    height: 240,
+  },
+  qrUserName: {
+    fontSize: 18,
+    fontFamily: 'Orbitron_700Bold',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  qrLocationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 12,
+  },
+  qrLocationText: {
+    fontSize: 12,
+    fontFamily: 'Orbitron_400Regular',
+    color: colors.textLight,
+  },
+  qrHint: {
+    fontSize: 11,
+    fontFamily: 'Orbitron_400Regular',
+    color: colors.textLight,
+    textAlign: 'center' as const,
+    marginBottom: 16,
+    paddingHorizontal: 10,
+    lineHeight: 16,
+  },
+  qrShareButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.accent,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 20,
+  },
+  qrShareButtonText: {
+    fontSize: 13,
+    fontFamily: 'Orbitron_600SemiBold',
+    color: '#FFFFFF',
   },
 });
