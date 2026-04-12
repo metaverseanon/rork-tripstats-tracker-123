@@ -689,19 +689,6 @@ export default function SettingsScreen() {
           {isAuthenticated && (
             <>
               <View style={styles.divider} />
-              <TouchableOpacity style={styles.linkItem} onPress={handleShareProfile} activeOpacity={0.7}>
-                <View style={styles.linkContent}>
-                  <View style={[styles.settingIconContainer, { backgroundColor: colors.accent + '18' }]}>
-                    <Share2 size={20} color={colors.accent} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.linkText}>Share Profile</Text>
-                    <Text style={styles.notificationDescription}>Share your profile link with others</Text>
-                  </View>
-                </View>
-                <ChevronRight size={20} color={colors.textLight} />
-              </TouchableOpacity>
-              <View style={styles.divider} />
               <TouchableOpacity style={styles.linkItem} onPress={handleShowQR} activeOpacity={0.7}>
                 <View style={styles.linkContent}>
                   <View style={[styles.settingIconContainer, { backgroundColor: colors.accent + '18' }]}>
