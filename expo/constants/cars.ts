@@ -62,6 +62,7 @@ export const CAR_BRANDS: CarBrand[] = [
       'X7 xDrive40i', 'X7 M60i', 'X7 xDrive30d', 'X7 xDrive40d', 'X7 M50d',
       'XM', 'XM Label Red',
       'Z4 sDrive20i', 'Z4 sDrive30i', 'Z4 M40i',
+      '335is E93',
       'M2', 'M2 Competition', 'M3', 'M3 Competition', 'M4', 'M4 Competition', 'M5', 'M5 Competition', 'M8', 'M8 Competition',
       'i3', 'i4 eDrive35', 'i4 eDrive40', 'i4 M50', 'i5 eDrive40', 'i5 M60', 'i7 eDrive50', 'i7 xDrive60', 'i7 M70',
       'iX xDrive40', 'iX xDrive50', 'iX M60', 'iX3'
@@ -89,7 +90,7 @@ export const CAR_BRANDS: CarBrand[] = [
   },
   {
     name: 'Citroën',
-    models: ['C1', 'C3', 'C3 Aircross', 'C4', 'C4 X', 'C5 Aircross', 'C5 X', 'Berlingo', 'SpaceTourer', 'ë-C4'],
+    models: ['C1', 'C3', 'C3 Aircross', 'C4', 'C4 X', 'C5 Aircross', 'C5 X', 'Berlingo', 'SpaceTourer', 'ë-C4', 'Xsara', 'Xsara Picasso', 'Xsara VTS'],
   },
   {
     name: 'Cupra',
