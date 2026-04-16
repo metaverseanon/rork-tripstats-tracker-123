@@ -779,19 +779,20 @@ export const socialRouter = createTRPCRouter({
         const followingIds = new Set(followRows.map(r => r.following_id));
         followingIds.add(input.userId);
 
-        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-        const feedUrl = `${getSupabaseRestUrl("activity_feed")}?order=created_at.desc&limit=100&created_at=gte.${encodeURIComponent(sevenDaysAgo)}`;
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+        const feedUrl = `${getSupabaseRestUrl("activity_feed")}?order=created_at.desc&limit=200&created_at=gte.${encodeURIComponent(thirtyDaysAgo)}`;
         const feedResp = await fetch(feedUrl, { method: "GET", headers: getSupabaseHeaders() });
         if (!feedResp.ok) return [];
 
         const allRows: ActivityFeedRow[] = await feedResp.json();
         const discoverRows = allRows.filter(r => !followingIds.has(r.user_id) && (r.top_speed ?? 0) > 0);
 
-        const seenUsers = new Set<string>();
+        const userCounts = new Map<string, number>();
         const uniqueRows: ActivityFeedRow[] = [];
         for (const row of discoverRows) {
-          if (!seenUsers.has(row.user_id)) {
-            seenUsers.add(row.user_id);
+          const count = userCounts.get(row.user_id) ?? 0;
+          if (count < 3) {
+            userCounts.set(row.user_id, count + 1);
             uniqueRows.push(row);
           }
         }
