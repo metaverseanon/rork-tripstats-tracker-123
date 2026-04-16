@@ -673,7 +673,7 @@ export const tripsRouter = createTRPCRouter({
       })
     )
     .query(async ({ input }) => {
-      console.log("[LEADERBOARD] Fetching leaderboard for category:", input.category, "filters:", JSON.stringify({
+      console.log("[LEADERBOARD] v2 Fetching leaderboard for category:", input.category, "filters:", JSON.stringify({
         country: input.country,
         city: input.city,
         carBrand: input.carBrand,
@@ -793,7 +793,7 @@ export const tripsRouter = createTRPCRouter({
         }
 
         const rows: SupabaseTripRow[] = await response.json();
-        console.log("[LEADERBOARD] Raw rows returned:", rows.length);
+        console.log("[LEADERBOARD] v2 Raw rows returned:", rows.length);
         
         const trips = rows.map(supabaseRowToTrip);
         
