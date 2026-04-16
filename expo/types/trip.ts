@@ -43,7 +43,7 @@ export interface LeaderboardEntry {
   rank: number;
 }
 
-export type LeaderboardCategory = 'topSpeed' | 'distance' | 'acceleration' | 'gForce' | 'totalDistance' | 'zeroToHundred' | 'zeroToTwoHundred' | 'challengesCompleted';
+export type LeaderboardCategory = 'topSpeed' | 'distance' | 'acceleration' | 'gForce' | 'totalDistance' | 'zeroToHundred' | 'zeroToTwoHundred' | 'hundredToTwoHundred' | 'challengesCompleted';
 
 export interface LeaderboardFilters {
   country?: string;

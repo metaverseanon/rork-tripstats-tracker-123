@@ -477,7 +477,7 @@ async function getTotalDistanceLeaderboard(input: {
 }): Promise<SyncedTrip[]> {
   try {
     let url = getSupabaseRestUrl("trips");
-    const params: string[] = ["select=id,user_id,user_name,user_profile_picture,start_time,end_time,distance,duration,avg_speed,top_speed,corners,car_model,acceleration,max_g_force,country,city,time_0_to_100,time_0_to_200,time_0_to_300,route_points", "distance=gt.0"];
+    const params: string[] = ["select=id,user_id,user_name,user_profile_picture,start_time,end_time,distance,duration,avg_speed,top_speed,corners,car_model,acceleration,max_g_force,country,city,time_0_to_100,time_0_to_200,time_100_to_200,time_0_to_300,route_points", "distance=gt.0"];
 
     if (input.country) {
       params.push(buildCountryFilter(input.country));
@@ -666,6 +666,7 @@ export const tripsRouter = createTRPCRouter({
           "gForce",
           "zeroToHundred",
           "zeroToTwoHundred",
+          "hundredToTwoHundred",
         ]),
         country: z.string().optional(),
         city: z.string().optional(),
@@ -699,7 +700,7 @@ export const tripsRouter = createTRPCRouter({
         let url = getSupabaseRestUrl("trips");
         const params: string[] = [];
         
-        params.push("select=id,user_id,user_name,user_profile_picture,start_time,end_time,distance,duration,avg_speed,top_speed,corners,car_model,acceleration,max_g_force,country,city,time_0_to_100,time_0_to_200,time_0_to_300,route_points");
+        params.push("select=id,user_id,user_name,user_profile_picture,start_time,end_time,distance,duration,avg_speed,top_speed,corners,car_model,acceleration,max_g_force,country,city,time_0_to_100,time_0_to_200,time_100_to_200,time_0_to_300,route_points");
 
         if (input.country) {
           params.push(buildCountryFilter(input.country));
@@ -774,6 +775,11 @@ export const tripsRouter = createTRPCRouter({
             orderBy = "time_0_to_200";
             ascending = true;
             filter = `time_0_to_200=gte.${MIN_VALID_0_TO_200}`;
+            break;
+          case "hundredToTwoHundred":
+            orderBy = "time_100_to_200";
+            ascending = true;
+            filter = "time_100_to_200=gte.3.0";
             break;
         }
 
