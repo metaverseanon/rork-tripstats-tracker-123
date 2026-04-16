@@ -585,7 +585,8 @@ export const postsRouter = createTRPCRouter({
         const followingIds = new Set(followRows.map((r) => r.following_id));
         followingIds.add(input.userId);
 
-        const postsUrl = `${getSupabaseRestUrl("posts")}?order=created_at.desc&limit=100`;
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+        const postsUrl = `${getSupabaseRestUrl("posts")}?order=created_at.desc&limit=100&created_at=gte.${encodeURIComponent(sevenDaysAgo)}`;
         const postsResp = await fetch(postsUrl, { method: "GET", headers: getSupabaseHeaders() });
         if (!postsResp.ok) return [];
 
