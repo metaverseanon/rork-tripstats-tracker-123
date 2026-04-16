@@ -27,6 +27,7 @@ export interface TripStats {
   location?: TripLocation;
   time0to100?: number;
   time0to200?: number;
+  time100to200?: number;
   time0to300?: number;
   speedCamerasDetected?: number;
 }

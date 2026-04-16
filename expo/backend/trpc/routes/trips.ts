@@ -200,6 +200,7 @@ const TripStatsSchema = z.object({
   location: TripLocationSchema.optional(),
   time0to100: z.number().optional(),
   time0to200: z.number().optional(),
+  time100to200: z.number().optional(),
   time0to300: z.number().optional(),
   routePoints: z.array(RoutePointSchema).optional(),
 });
@@ -225,6 +226,7 @@ interface SupabaseTripRow {
   city?: string;
   time_0_to_100?: number;
   time_0_to_200?: number;
+  time_100_to_200?: number;
   time_0_to_300?: number;
   route_points?: { latitude: number; longitude: number }[] | string;
   created_at?: string;
@@ -348,6 +350,7 @@ function tripToSupabaseRow(trip: SyncedTrip): SupabaseTripRow {
     city: trip.location?.city,
     time_0_to_100: sanitizeAccelTime(trip.time0to100, MIN_VALID_0_TO_100, '0-100'),
     time_0_to_200: sanitizeAccelTime(trip.time0to200, MIN_VALID_0_TO_200, '0-200'),
+    time_100_to_200: sanitizeAccelTime(trip.time100to200, 3.0, '100-200'),
     time_0_to_300: sanitizeAccelTime(trip.time0to300, MIN_VALID_0_TO_300, '0-300'),
   };
   if (trip.routePoints && trip.routePoints.length > 0) {
@@ -457,6 +460,7 @@ function supabaseRowToTrip(row: SupabaseTripRow): SyncedTrip {
     location: row.country || row.city ? { country: row.country, city: row.city } : undefined,
     time0to100: row.time_0_to_100,
     time0to200: row.time_0_to_200,
+    time100to200: row.time_100_to_200,
     time0to300: row.time_0_to_300,
     routePoints,
   };

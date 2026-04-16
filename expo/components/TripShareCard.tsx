@@ -291,6 +291,7 @@ export default function TripShareCard({ trip, visible, onClose, timePeriod = 'to
     if (shareFields.corners) items.push({ value: `${trip.corners} time${trip.corners !== 1 ? 's' : ''}`, label: 'Corners taken' });
     if (shareFields.avgSpeed) items.push({ value: `${Math.round(convertSpeed(trip.avgSpeed))} ${speedLabel}`, label: 'Avg speed' });
     if (shareFields.acceleration) items.push({ value: trip.time0to100 ? `${trip.time0to100.toFixed(1)}s` : '--', label: getAccelerationLabel('0-100') });
+    if (shareFields.acceleration && trip.time100to200) items.push({ value: `${trip.time100to200.toFixed(1)}s`, label: getAccelerationLabel('100-200') });
     if (shareFields.speedCameras && !tripInRestrictedCountry) items.push({ value: `${trip.speedCamerasDetected ?? 0}`, label: 'Speed cameras' });
     return items;
   }, [shareFields, distanceValue, distanceLabel, trip, speedLabel, convertSpeed, getAccelerationLabel, tripInRestrictedCountry]);

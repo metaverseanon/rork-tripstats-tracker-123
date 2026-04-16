@@ -160,18 +160,26 @@ export const [SettingsProvider, useSettings] = createContextHook(() => {
     return settings.distanceUnit === 'mi' ? 'mi' : 'km';
   }, [settings.distanceUnit]);
 
-  const getAccelerationLabel = useCallback((type: '0-100' | '0-200'): string => {
+  const getAccelerationLabel = useCallback((type: '0-100' | '0-200' | '100-200'): string => {
     if (settings.speedUnit === 'mph') {
-      return type === '0-100' ? '0-60 mph' : '0-130 mph';
+      if (type === '0-100') return '0-60 mph';
+      if (type === '0-200') return '0-130 mph';
+      return '60-130 mph';
     }
-    return type === '0-100' ? '0-100 km/h' : '0-200 km/h';
+    if (type === '0-100') return '0-100 km/h';
+    if (type === '0-200') return '0-200 km/h';
+    return '100-200 km/h';
   }, [settings.speedUnit]);
 
-  const getAccelerationShortLabel = useCallback((type: '0-100' | '0-200'): string => {
+  const getAccelerationShortLabel = useCallback((type: '0-100' | '0-200' | '100-200'): string => {
     if (settings.speedUnit === 'mph') {
-      return type === '0-100' ? '0-60' : '0-130';
+      if (type === '0-100') return '0-60';
+      if (type === '0-200') return '0-130';
+      return '60-130';
     }
-    return type === '0-100' ? '0-100' : '0-200';
+    if (type === '0-100') return '0-100';
+    if (type === '0-200') return '0-200';
+    return '100-200';
   }, [settings.speedUnit]);
 
   return useMemo(() => ({

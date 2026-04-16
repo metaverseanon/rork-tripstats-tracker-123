@@ -175,6 +175,8 @@ export const [TripProvider, useTrips] = createContextHook(() => {
   const time0to100 = useRef<number | null>(null);
   const time0to200 = useRef<number | null>(null);
   const time0to300 = useRef<number | null>(null);
+  const time100to200 = useRef<number | null>(null);
+  const time100Start = useRef<number | null>(null);
   const driveStartTimestamp = useRef<number>(0);
   const standstillConfirmed = useRef<boolean>(false);
   const consecutiveLowSpeedReadings = useRef<number>(0);
@@ -359,6 +361,7 @@ export const [TripProvider, useTrips] = createContextHook(() => {
             location: serverTrip.location,
             time0to100: serverTrip.time0to100,
             time0to200: serverTrip.time0to200,
+            time100to200: serverTrip.time100to200,
             time0to300: serverTrip.time0to300,
           };
           newTripsFromServer.push(restored);
@@ -695,6 +698,7 @@ export const [TripProvider, useTrips] = createContextHook(() => {
       maxGForce: maxGForce.current,
       time0to100: time0to100.current ?? undefined,
       time0to200: time0to200.current ?? undefined,
+      time100to200: time100to200.current ?? undefined,
       time0to300: time0to300.current ?? undefined,
       speedCamerasDetected: speedCamerasCount.current,
     };
@@ -798,6 +802,7 @@ export const [TripProvider, useTrips] = createContextHook(() => {
       maxGForce: maxGForce.current,
       time0to100: time0to100.current ?? undefined,
       time0to200: time0to200.current ?? undefined,
+      time100to200: time100to200.current ?? undefined,
       time0to300: time0to300.current ?? undefined,
       speedCamerasDetected: speedCamerasCount.current,
     };
@@ -936,6 +941,7 @@ export const [TripProvider, useTrips] = createContextHook(() => {
         location: trip.location,
         time0to100: trip.time0to100,
         time0to200: trip.time0to200,
+        time100to200: trip.time100to200,
         time0to300: trip.time0to300,
         routePoints,
       };
@@ -1148,6 +1154,7 @@ export const [TripProvider, useTrips] = createContextHook(() => {
         reached100.current = false;
         reached200.current = false;
         reached300.current = false;
+        time100Start.current = null;
       }
     } else {
       consecutiveLowSpeedReadings.current = 0;
@@ -1166,6 +1173,7 @@ export const [TripProvider, useTrips] = createContextHook(() => {
 
     if (!reached100.current && currentSpeedKmh >= 100) {
       reached100.current = true;
+      time100Start.current = currentTime;
       const timeSeconds = (currentTime - accelStartTime.current) / 1000;
       if (timeSeconds >= MIN_0_TO_100_TIME) {
         if (time0to100.current === null || timeSeconds < time0to100.current) {
@@ -1187,6 +1195,19 @@ export const [TripProvider, useTrips] = createContextHook(() => {
         }
       } else {
         console.log('[ACCEL] Rejected 0-200 time ' + timeSeconds.toFixed(2) + 's (below minimum ' + MIN_0_TO_200_TIME + 's)');
+      }
+
+      if (time100Start.current !== null) {
+        const time100to200Seconds = (currentTime - time100Start.current) / 1000;
+        const MIN_100_TO_200_TIME = 3.0;
+        if (time100to200Seconds >= MIN_100_TO_200_TIME) {
+          if (time100to200.current === null || time100to200Seconds < time100to200.current) {
+            time100to200.current = time100to200Seconds;
+            console.log('[ACCEL] Valid 100-200 time recorded: ' + time100to200Seconds.toFixed(2) + 's');
+          }
+        } else {
+          console.log('[ACCEL] Rejected 100-200 time ' + time100to200Seconds.toFixed(2) + 's (below minimum ' + MIN_100_TO_200_TIME + 's)');
+        }
       }
     }
 
@@ -1232,6 +1253,7 @@ export const [TripProvider, useTrips] = createContextHook(() => {
             maxGForce: maxGForce.current,
             time0to100: time0to100.current ?? undefined,
             time0to200: time0to200.current ?? undefined,
+            time100to200: time100to200.current ?? undefined,
             time0to300: time0to300.current ?? undefined,
           };
         });
@@ -1328,6 +1350,8 @@ export const [TripProvider, useTrips] = createContextHook(() => {
       reached300.current = false;
       time0to100.current = null;
       time0to200.current = null;
+      time100to200.current = null;
+      time100Start.current = null;
       time0to300.current = null;
       driveStartTimestamp.current = Date.now();
       standstillConfirmed.current = false;
@@ -1479,6 +1503,7 @@ export const [TripProvider, useTrips] = createContextHook(() => {
         carModel: carModel || tripToSave.carModel,
         time0to100: time0to100.current ?? undefined,
         time0to200: time0to200.current ?? undefined,
+        time100to200: time100to200.current ?? undefined,
         time0to300: time0to300.current ?? undefined,
       };
 
@@ -1547,6 +1572,8 @@ export const [TripProvider, useTrips] = createContextHook(() => {
     reached300.current = false;
     time0to100.current = null;
     time0to200.current = null;
+    time100to200.current = null;
+    time100Start.current = null;
     time0to300.current = null;
     driveStartTimestamp.current = 0;
     standstillConfirmed.current = false;
@@ -1615,6 +1642,8 @@ export const [TripProvider, useTrips] = createContextHook(() => {
     reached300.current = false;
     time0to100.current = null;
     time0to200.current = null;
+    time100to200.current = null;
+    time100Start.current = null;
     time0to300.current = null;
     driveStartTimestamp.current = 0;
     standstillConfirmed.current = false;
