@@ -27,7 +27,6 @@ export interface TripStats {
   location?: TripLocation;
   time0to100?: number;
   time0to200?: number;
-  time100to200?: number;
   time0to300?: number;
   speedCamerasDetected?: number;
 }
@@ -43,7 +42,7 @@ export interface LeaderboardEntry {
   rank: number;
 }
 
-export type LeaderboardCategory = 'topSpeed' | 'distance' | 'acceleration' | 'gForce' | 'totalDistance' | 'zeroToHundred' | 'zeroToTwoHundred' | 'hundredToTwoHundred' | 'challengesCompleted';
+export type LeaderboardCategory = 'topSpeed' | 'distance' | 'acceleration' | 'gForce' | 'totalDistance' | 'zeroToHundred' | 'zeroToTwoHundred' | 'challengesCompleted';
 
 export interface LeaderboardFilters {
   country?: string;

@@ -216,9 +216,6 @@ export default function RecapScreen() {
     const times0to200 = filteredTrips.map((trip) => trip.time0to200).filter((t): t is number => t !== undefined && t > 0);
     const best0to200 = times0to200.length > 0 ? Math.min(...times0to200) : null;
 
-    const times100to200 = filteredTrips.map((trip) => trip.time100to200).filter((t): t is number => t !== undefined && t > 0);
-    const best100to200 = times100to200.length > 0 ? Math.min(...times100to200) : null;
-
     const gForces = filteredTrips.map((trip) => trip.maxGForce || 0);
     const maxGForce = gForces.length > 0 ? Math.max(...gForces) : 0;
 
@@ -240,7 +237,6 @@ export default function RecapScreen() {
       uniqueCarModels,
       best0to100,
       best0to200,
-      best100to200,
       maxGForce,
       avgTripHour,
       dayTrips,
@@ -310,7 +306,6 @@ export default function RecapScreen() {
     const consistency = getDriveConsistency();
     const time0to100 = formatAccelTime(lastTrip.time0to100);
     const time0to200 = formatAccelTime(lastTrip.time0to200);
-    const time100to200 = formatAccelTime(lastTrip.time100to200);
 
     return (
       <View style={styles.recentContent}>
@@ -385,18 +380,6 @@ export default function RecapScreen() {
                 {time0to200 && <Text style={styles.smallCardUnit}>s</Text>}
               </View>
               <Text style={styles.smallCardLabel}>{getAccelerationShortLabel('0-200').toUpperCase()}</Text>
-            </View>
-          </View>
-        </AnimatedCard>
-
-        <AnimatedCard index={4} slideDistance={18} duration={300}>
-          <View style={styles.smallCardsRow}>
-            <View style={styles.smallCard}>
-              <View style={styles.smallCardValueRow}>
-                <Text style={styles.smallCardValue}>{time100to200 ?? '--'}</Text>
-                {time100to200 && <Text style={styles.smallCardUnit}>s</Text>}
-              </View>
-              <Text style={styles.smallCardLabel}>{getAccelerationShortLabel('100-200').toUpperCase()}</Text>
             </View>
           </View>
         </AnimatedCard>
@@ -620,13 +603,6 @@ export default function RecapScreen() {
               value={calculateStats.best0to200 !== null ? calculateStats.best0to200.toFixed(1) : '—'}
               unit={calculateStats.best0to200 !== null ? 'sec' : ''}
               color="#F59E0B"
-            />
-            <StatCard
-              icon={<Timer color="#8B5CF6" size={20} />}
-              title={`Best ${getAccelerationShortLabel('100-200')}`}
-              value={calculateStats.best100to200 !== null ? calculateStats.best100to200.toFixed(1) : '—'}
-              unit={calculateStats.best100to200 !== null ? 'sec' : ''}
-              color="#8B5CF6"
             />
           </View>
         </AnimatedCard>

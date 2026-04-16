@@ -710,7 +710,6 @@ export default function LeaderboardScreen() {
     { key: 'gForce' as LeaderboardCategory, label: 'Max G-Force', icon: <Activity size={16} color={colors.danger} /> },
     { key: 'zeroToHundred' as LeaderboardCategory, label: getAccelerationLabel('0-100'), icon: <Timer size={16} color={colors.primary} /> },
     { key: 'zeroToTwoHundred' as LeaderboardCategory, label: getAccelerationLabel('0-200'), icon: <Timer size={16} color={colors.accent} /> },
-    { key: 'hundredToTwoHundred' as LeaderboardCategory, label: getAccelerationLabel('100-200'), icon: <Timer size={16} color={colors.success} /> },
     { key: 'challengesCompleted' as LeaderboardCategory, label: 'Challenges %', icon: <Trophy size={16} color="#FFD700" /> },
   ], [colors, getAccelerationLabel]);
 
@@ -984,11 +983,6 @@ export default function LeaderboardScreen() {
           .filter((t) => (t.time0to200 ?? 0) >= 5.0)
           .sort((a, b) => (a.time0to200 ?? Infinity) - (b.time0to200 ?? Infinity));
         break;
-      case 'hundredToTwoHundred':
-        sorted = [...allTrips]
-          .filter((t) => (t.time100to200 ?? 0) >= 1.5)
-          .sort((a, b) => (a.time100to200 ?? Infinity) - (b.time100to200 ?? Infinity));
-        break;
     }
 
     return sorted.slice(0, 10);
@@ -1075,8 +1069,6 @@ export default function LeaderboardScreen() {
         return `${(trip.time0to100 ?? 0).toFixed(2)}s`;
       case 'zeroToTwoHundred':
         return `${(trip.time0to200 ?? 0).toFixed(2)}s`;
-      case 'hundredToTwoHundred':
-        return `${(trip.time100to200 ?? 0).toFixed(2)}s`;
       case 'challengesCompleted':
         return '';
     }

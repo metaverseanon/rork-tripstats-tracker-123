@@ -719,10 +719,6 @@ export default function UserProfileScreen() {
           if (!tr.time0to200 || tr.time0to200 <= 0) return best;
           return best === null ? tr.time0to200 : Math.min(best, tr.time0to200);
         }, null),
-        best100to200: t.reduce((best: number | null, tr) => {
-          if (!tr.time100to200 || tr.time100to200 <= 0) return best;
-          return best === null ? tr.time100to200 : Math.min(best, tr.time100to200);
-        }, null),
         totalDuration: t.reduce((sum, tr) => sum + tr.duration, 0),
         lastDriveDate: Math.max(0, ...t.map(tr => tr.startTime)),
       });
@@ -1059,17 +1055,6 @@ export default function UserProfileScreen() {
                                 <View style={styles.statTextGroup}>
                                   <Text style={styles.statValue}>{car.best0to200.toFixed(2)}s</Text>
                                   <Text style={styles.statLabel}>0-200</Text>
-                                </View>
-                              </View>
-                            )}
-                            {car.best100to200 && (
-                              <View style={styles.statItem}>
-                                <View style={[styles.statIconBg, { backgroundColor: '#8B5CF6' + '20' }]}>
-                                  <Timer size={18} color="#8B5CF6" />
-                                </View>
-                                <View style={styles.statTextGroup}>
-                                  <Text style={styles.statValue}>{car.best100to200.toFixed(2)}s</Text>
-                                  <Text style={styles.statLabel}>100-200</Text>
                                 </View>
                               </View>
                             )}

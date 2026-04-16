@@ -307,18 +307,6 @@ export default function TrackScreen() {
 
           <View style={sStyles.row}>
             <View style={[sStyles.statCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
-              <Text style={[sStyles.statLabel, { color: colors.textLight }]}>{getAccelerationLabel('100-200').toUpperCase()}</Text>
-              <View style={sStyles.statValueRow}>
-                <Text style={[sStyles.statValue, { color: colors.text }]}>
-                  {currentTrip?.time100to200 ? currentTrip.time100to200.toFixed(2) : '--'}
-                </Text>
-                <Text style={[sStyles.statSuffixSmall, { color: colors.textLight }]}>SEC</Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={sStyles.row}>
-            <View style={[sStyles.statCard, { backgroundColor: cardBg, borderColor: cardBorder }]}>
               <Text style={[sStyles.statLabel, { color: colors.textLight }]}>G-FORCE</Text>
               <View style={sStyles.statValueRow}>
                 <Text style={[sStyles.statValue, { color: colors.text }]}>

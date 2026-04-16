@@ -200,7 +200,6 @@ const TripStatsSchema = z.object({
   location: TripLocationSchema.optional(),
   time0to100: z.number().optional(),
   time0to200: z.number().optional(),
-  time100to200: z.number().optional(),
   time0to300: z.number().optional(),
   routePoints: z.array(RoutePointSchema).optional(),
 });
@@ -226,7 +225,6 @@ interface SupabaseTripRow {
   city?: string;
   time_0_to_100?: number;
   time_0_to_200?: number;
-  time_100_to_200?: number;
   time_0_to_300?: number;
   route_points?: { latitude: number; longitude: number }[] | string;
   created_at?: string;
@@ -235,7 +233,6 @@ interface SupabaseTripRow {
 
 const MIN_VALID_0_TO_100 = 1.5;
 const MIN_VALID_0_TO_200 = 4.0;
-const MIN_VALID_100_TO_200 = 1.5;
 const MIN_VALID_0_TO_300 = 8.0;
 const MAX_VALID_TOP_SPEED = 500;
 const MAX_VALID_ACCELERATION = 30;
@@ -351,7 +348,6 @@ function tripToSupabaseRow(trip: SyncedTrip): SupabaseTripRow {
     city: trip.location?.city,
     time_0_to_100: sanitizeAccelTime(trip.time0to100, MIN_VALID_0_TO_100, '0-100'),
     time_0_to_200: sanitizeAccelTime(trip.time0to200, MIN_VALID_0_TO_200, '0-200'),
-    time_100_to_200: sanitizeAccelTime(trip.time100to200, MIN_VALID_100_TO_200, '100-200'),
     time_0_to_300: sanitizeAccelTime(trip.time0to300, MIN_VALID_0_TO_300, '0-300'),
   };
   if (trip.routePoints && trip.routePoints.length > 0) {
@@ -461,7 +457,6 @@ function supabaseRowToTrip(row: SupabaseTripRow): SyncedTrip {
     location: row.country || row.city ? { country: row.country, city: row.city } : undefined,
     time0to100: row.time_0_to_100,
     time0to200: row.time_0_to_200,
-    time100to200: row.time_100_to_200,
     time0to300: row.time_0_to_300,
     routePoints,
   };
@@ -478,7 +473,7 @@ async function getTotalDistanceLeaderboard(input: {
 }): Promise<SyncedTrip[]> {
   try {
     let url = getSupabaseRestUrl("trips");
-    const params: string[] = ["select=id,user_id,user_name,user_profile_picture,start_time,end_time,distance,duration,avg_speed,top_speed,corners,car_model,acceleration,max_g_force,country,city,time_0_to_100,time_0_to_200,time_100_to_200,time_0_to_300,route_points", "distance=gt.0"];
+    const params: string[] = ["select=id,user_id,user_name,user_profile_picture,start_time,end_time,distance,duration,avg_speed,top_speed,corners,car_model,acceleration,max_g_force,country,city,time_0_to_100,time_0_to_200,time_0_to_300,route_points", "distance=gt.0"];
 
     if (input.country) {
       params.push(buildCountryFilter(input.country));
@@ -667,7 +662,6 @@ export const tripsRouter = createTRPCRouter({
           "gForce",
           "zeroToHundred",
           "zeroToTwoHundred",
-          "hundredToTwoHundred",
         ]),
         country: z.string().optional(),
         city: z.string().optional(),
@@ -701,7 +695,7 @@ export const tripsRouter = createTRPCRouter({
         let url = getSupabaseRestUrl("trips");
         const params: string[] = [];
         
-        params.push("select=id,user_id,user_name,user_profile_picture,start_time,end_time,distance,duration,avg_speed,top_speed,corners,car_model,acceleration,max_g_force,country,city,time_0_to_100,time_0_to_200,time_100_to_200,time_0_to_300,route_points");
+        params.push("select=id,user_id,user_name,user_profile_picture,start_time,end_time,distance,duration,avg_speed,top_speed,corners,car_model,acceleration,max_g_force,country,city,time_0_to_100,time_0_to_200,time_0_to_300,route_points");
 
         if (input.country) {
           params.push(buildCountryFilter(input.country));
@@ -776,11 +770,6 @@ export const tripsRouter = createTRPCRouter({
             orderBy = "time_0_to_200";
             ascending = true;
             filter = `time_0_to_200=gte.${MIN_VALID_0_TO_200}`;
-            break;
-          case "hundredToTwoHundred":
-            orderBy = "time_100_to_200";
-            ascending = true;
-            filter = `time_100_to_200=gte.${MIN_VALID_100_TO_200}`;
             break;
         }
 
