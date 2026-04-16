@@ -779,8 +779,8 @@ export const socialRouter = createTRPCRouter({
         const followingIds = new Set(followRows.map(r => r.following_id));
         followingIds.add(input.userId);
 
-        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-        const feedUrl = `${getSupabaseRestUrl("activity_feed")}?order=created_at.desc&limit=200&created_at=gte.${encodeURIComponent(thirtyDaysAgo)}`;
+        const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+        const feedUrl = `${getSupabaseRestUrl("activity_feed")}?order=created_at.desc&limit=200&created_at=gte.${thirtyDaysAgo}`;
         const feedResp = await fetch(feedUrl, { method: "GET", headers: getSupabaseHeaders() });
         if (!feedResp.ok) return [];
 
