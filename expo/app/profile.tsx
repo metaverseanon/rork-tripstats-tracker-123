@@ -557,9 +557,16 @@ export default function ProfileScreen() {
           Alert.alert('Success', 'Signed in successfully');
           router.back();
         } else if (result.error === 'incorrect_password') {
-          Alert.alert('Error', 'Incorrect password. Please try again.');
-        } else {
+          Alert.alert('Error', result.message || 'Incorrect password. Please try again.');
+        } else if (result.error === 'no_password') {
+          Alert.alert(
+            'Use Google Sign In',
+            'This account was created with Google. Please sign in with Google, or create a password by tapping "Sign Up" with the same email.'
+          );
+        } else if (result.error === 'not_found') {
           Alert.alert('Error', 'No account found with this email. Please sign up first.');
+        } else {
+          Alert.alert('Error', result.message || 'Unable to sign in. Please try again.');
         }
       } else {
         const carsToAdd: UserCar[] = additionalCars.map(c => ({

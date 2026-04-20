@@ -703,9 +703,36 @@ export const userRouter = createTRPCRouter({
 
       const existingEmail = await getUserByEmail(input.email);
       if (existingEmail) {
+        // If the existing account has no password (e.g. Google-only),
+        // allow upgrading it by adding a password + profile info.
+        if (!existingEmail.passwordHash && input.password) {
+          console.log("[REGISTER] Upgrading existing Google account with password:", existingEmail.email);
+          const newHash = hashPassword(input.password);
+          const updates: Partial<StoredUser> = {
+            passwordHash: newHash,
+          };
+          if (input.displayName && !existingEmail.displayName) updates.displayName = input.displayName;
+          if (input.country && !existingEmail.country) updates.country = input.country;
+          if (input.city && !existingEmail.city) updates.city = input.city;
+          if (input.carBrand && !existingEmail.carBrand) updates.carBrand = input.carBrand;
+          if (input.carModel && !existingEmail.carModel) updates.carModel = input.carModel;
+          const ok = await updateUserInDb(existingEmail.id, updates);
+          if (!ok) {
+            return {
+              success: false,
+              error: 'Failed to update account. Please try again.',
+            };
+          }
+          return {
+            success: true,
+            stored: true,
+            upgraded: true,
+            welcomeEmailSent: false,
+          };
+        }
         return {
           success: false,
-          error: 'An account with this email already exists.',
+          error: 'An account with this email already exists. Please sign in instead.',
         };
       }
 
