@@ -270,7 +270,7 @@ export const [UserProvider, useUser] = createContextHook(() => {
 
     const newUser: UserProfile = {
       id: userId,
-      email,
+      email: email.trim().toLowerCase(),
       displayName,
       profilePicture,
       country,
@@ -535,9 +535,10 @@ export const [UserProvider, useUser] = createContextHook(() => {
     }
     
     const userId = Date.now().toString();
+    const normalizedGoogleEmail = email.trim().toLowerCase();
     const newUser: UserProfile = {
       id: userId,
-      email,
+      email: normalizedGoogleEmail,
       displayName,
       profilePicture,
       createdAt: Date.now(),
@@ -548,7 +549,7 @@ export const [UserProvider, useUser] = createContextHook(() => {
     try {
       await trpcClient.user.register.mutate({
         id: userId,
-        email,
+        email: normalizedGoogleEmail,
         displayName,
       });
       console.log('Google user registered');

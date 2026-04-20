@@ -699,9 +699,11 @@ export const userRouter = createTRPCRouter({
       authProvider: z.enum(['email', 'google']).optional(),
     }))
     .mutation(async ({ input }) => {
-      console.log("Registering new user:", input.email);
+      const normalizedEmail = input.email.trim().toLowerCase();
+      input = { ...input, email: normalizedEmail };
+      console.log("Registering new user:", normalizedEmail);
 
-      const existingEmail = await getUserByEmail(input.email);
+      const existingEmail = await getUserByEmail(normalizedEmail);
       if (existingEmail) {
         // If the existing account has no password (e.g. Google-only),
         // allow upgrading it by adding a password + profile info.
@@ -787,9 +789,10 @@ export const userRouter = createTRPCRouter({
       password: z.string(),
     }))
     .mutation(async ({ input }) => {
-      console.log("Login attempt for:", input.email);
+      const normalizedEmail = input.email.trim().toLowerCase();
+      console.log("Login attempt for:", normalizedEmail);
 
-      const user = await getUserByEmail(input.email);
+      const user = await getUserByEmail(normalizedEmail);
 
       if (!user) {
         return {
