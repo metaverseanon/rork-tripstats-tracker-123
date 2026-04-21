@@ -13,6 +13,7 @@ import { AchievementProvider } from "@/providers/AchievementProvider";
 import { SettingsProvider } from "@/providers/SettingsProvider";
 import { UserProvider, useUser } from "@/providers/UserProvider";
 import { NotificationProvider, useNotifications } from "@/providers/NotificationProvider";
+import StreakPopup from "@/components/StreakPopup";
 import { trpc, trpcClient } from "@/lib/trpc";
 import * as Location from 'expo-location';
 import {
@@ -432,6 +433,7 @@ export default function RootLayout() {
                   <SafeAreaProvider>
                     <GestureHandlerRootView style={styles.container}>
                       <RootLayoutNav />
+                      <StreakPopup />
                     </GestureHandlerRootView>
                   </SafeAreaProvider>
                   </DailyMissionProvider>
