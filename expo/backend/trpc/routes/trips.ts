@@ -71,34 +71,49 @@ async function sendLeaderboardBeatNotifications(input: {
   userName?: string;
   topSpeed: number;
   carModel?: string;
+  city?: string;
+  country?: string;
 }): Promise<void> {
   if (!isDbConfigured() || input.topSpeed <= 0) return;
 
   try {
-    console.log("[LEADERBOARD_NOTIFY] Checking if user beat anyone. topSpeed:", input.topSpeed);
+    console.log("[LEADERBOARD_NOTIFY] Checking if user beat anyone. topSpeed:", input.topSpeed, "city:", input.city);
 
-    const tripsUrl = `${getSupabaseRestUrl("trips")}?select=user_id,top_speed&top_speed=gt.0&order=top_speed.desc&limit=500`;
+    const tripsUrl = `${getSupabaseRestUrl("trips")}?select=user_id,top_speed,city,country&top_speed=gt.0&order=top_speed.desc&limit=1000`;
     const tripsResp = await fetch(tripsUrl, { method: "GET", headers: getSupabaseHeaders() });
     if (!tripsResp.ok) {
       console.error("[LEADERBOARD_NOTIFY] Failed to fetch trips for comparison");
       return;
     }
 
-    const allTrips: { user_id: string; top_speed: number }[] = await tripsResp.json();
+    const allTrips: { user_id: string; top_speed: number; city?: string; country?: string }[] = await tripsResp.json();
 
     const userBestSpeeds = new Map<string, number>();
+    const userBestCitySpeeds = new Map<string, number>();
     for (const t of allTrips) {
       if (t.user_id === input.userId) continue;
       const existing = userBestSpeeds.get(t.user_id);
       if (!existing || t.top_speed > existing) {
         userBestSpeeds.set(t.user_id, t.top_speed);
       }
+      if (input.city && t.city && t.city === input.city) {
+        const ec = userBestCitySpeeds.get(t.user_id);
+        if (!ec || t.top_speed > ec) {
+          userBestCitySpeeds.set(t.user_id, t.top_speed);
+        }
+      }
     }
 
     const beatenUserIds: string[] = [];
+    const beatenInCityIds = new Set<string>();
     for (const [uid, bestSpeed] of userBestSpeeds) {
       if (input.topSpeed > bestSpeed) {
         beatenUserIds.push(uid);
+      }
+    }
+    for (const [uid, bestCitySpeed] of userBestCitySpeeds) {
+      if (input.topSpeed > bestCitySpeed) {
+        beatenInCityIds.add(uid);
       }
     }
 
@@ -107,7 +122,7 @@ async function sendLeaderboardBeatNotifications(input: {
       return;
     }
 
-    console.log("[LEADERBOARD_NOTIFY] Beaten user IDs:", beatenUserIds.length);
+    console.log("[LEADERBOARD_NOTIFY] Beaten user IDs:", beatenUserIds.length, "in-city:", beatenInCityIds.size);
 
     const usersUrl = `${getSupabaseRestUrl("users")}?select=id,display_name,push_token,speed_unit`;
     const usersResp = await fetch(usersUrl, { method: "GET", headers: getSupabaseHeaders() });
@@ -131,12 +146,26 @@ async function sendLeaderboardBeatNotifications(input: {
 
     const messages = usersToNotify.map(u => {
       const speed = convertSpeedForUnit(input.topSpeed, u.speed_unit);
+      const beatInCity = input.city && beatenInCityIds.has(u.id);
+      const title = beatInCity
+        ? `🏁 Someone in ${input.city} just beat your top speed!`
+        : "🏁 You've been overtaken!";
+      const body = beatInCity
+        ? `${driverName}${carInfo} hit ${speed.value} ${speed.label} in ${input.city}. Can you reclaim it?`
+        : `${driverName} just beat you${carInfo} hitting ${speed.value} ${speed.label}!`;
       return {
         to: u.push_token!,
-        title: "🏁 You've been overtaken!",
-        body: `${driverName} just beat you${carInfo} hitting ${speed.value} ${speed.label}!`,
+        title,
+        body,
         sound: "default" as const,
-        data: { type: "leaderboard_beat", fromUserId: input.userId, topSpeed: input.topSpeed },
+        data: {
+          type: "leaderboard_beat",
+          fromUserId: input.userId,
+          topSpeed: input.topSpeed,
+          city: input.city,
+          country: input.country,
+          scope: beatInCity ? "city" : "global",
+        },
         channelId: "default",
         priority: "high" as const,
       };
@@ -643,6 +672,8 @@ export const tripsRouter = createTRPCRouter({
           userName: input.userName,
           topSpeed: input.topSpeed,
           carModel: input.carModel,
+          city: input.location?.city,
+          country: input.location?.country,
         }).catch(err => console.error("[TRIPS] Leaderboard notification error:", err));
 
         createActivityFeedEntry(input).catch((err: unknown) => console.error("[TRIPS] Activity feed entry error:", err));

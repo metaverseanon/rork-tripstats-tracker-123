@@ -24,12 +24,14 @@ import {
   Moon,
   Navigation,
   MapPin,
+  Share2,
 } from 'lucide-react-native';
 import MapView, { Polyline, PROVIDER_DEFAULT } from 'react-native-maps';
 import * as Haptics from 'expo-haptics';
 import { useTrips } from '@/providers/TripProvider';
 import { useSettings } from '@/providers/SettingsProvider';
 import AnimatedCard from '@/components/AnimatedCard';
+import WeeklyRecapCard from '@/components/WeeklyRecapCard';
 import { TripStats } from '@/types/trip';
 import { ThemeColors } from '@/constants/colors';
 
@@ -59,6 +61,7 @@ export default function RecapScreen() {
   const { convertSpeed, convertDistance, getSpeedLabel, getDistanceLabel, getAccelerationShortLabel, colors } = useSettings();
   const [viewMode, setViewMode] = useState<ViewMode>('recent');
   const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>('weekly');
+  const [showWeeklyRecap, setShowWeeklyRecap] = useState<boolean>(false);
 
   const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -152,6 +155,14 @@ export default function RecapScreen() {
     { key: 'yearly', label: 'Year' },
     { key: 'all', label: 'All Time' },
   ];
+
+  const weekRange = useMemo(() => {
+    const now = new Date();
+    const weekDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    weekDate.setDate(weekDate.getDate() - ((weekDate.getDay() + 6) % 7));
+    const start = weekDate.getTime();
+    return { start, end: Date.now() };
+  }, []);
 
   const filterTripsByPeriod = useMemo(() => {
     const now = new Date();
@@ -670,6 +681,27 @@ export default function RecapScreen() {
           </AnimatedCard>
         )}
 
+        {selectedPeriod === 'weekly' && calculateStats.totalTrips > 0 && (
+          <AnimatedCard index={3} slideDistance={20} duration={350}>
+            <TouchableOpacity
+              style={styles.weeklyShareCta}
+              onPress={() => setShowWeeklyRecap(true)}
+              activeOpacity={0.85}
+              testID="weekly-recap-share"
+            >
+              <View style={styles.weeklyShareIcon}>
+                <Share2 color="#FFFFFF" size={20} />
+              </View>
+              <View style={styles.weeklyShareTextWrap}>
+                <Text style={styles.weeklyShareTitle}>Share Your Week</Text>
+                <Text style={styles.weeklyShareSubtitle}>
+                  Generate a weekly recap card to post on stories
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </AnimatedCard>
+        )}
+
         {calculateStats.totalTrips === 0 && (
           <View style={styles.emptyState}>
             <Calendar color={colors.textLight} size={48} />
@@ -716,6 +748,14 @@ export default function RecapScreen() {
         {viewMode === 'recent' ? renderRecentContent() : renderRecapContent()}
         <View style={styles.bottomSpacer} />
       </ScrollView>
+
+      <WeeklyRecapCard
+        visible={showWeeklyRecap}
+        onClose={() => setShowWeeklyRecap(false)}
+        trips={trips}
+        weekStart={weekRange.start}
+        weekEnd={weekRange.end}
+      />
     </SafeAreaView>
   );
 }
@@ -1264,5 +1304,36 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   bottomSpacer: {
     height: 40,
+  },
+  weeklyShareCta: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    backgroundColor: colors.cardBackground,
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 4,
+    gap: 14,
+  },
+  weeklyShareIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  weeklyShareTextWrap: {
+    flex: 1,
+  },
+  weeklyShareTitle: {
+    fontSize: 16,
+    fontFamily: 'Orbitron_700Bold',
+    color: '#FFFFFF',
+  },
+  weeklyShareSubtitle: {
+    fontSize: 12,
+    fontFamily: 'Orbitron_400Regular',
+    color: 'rgba(255,255,255,0.7)',
+    marginTop: 2,
   },
 });

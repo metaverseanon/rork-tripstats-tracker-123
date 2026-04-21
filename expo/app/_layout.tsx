@@ -6,6 +6,7 @@ import { StyleSheet, Platform, View, Text, TouchableOpacity } from "react-native
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { TripProvider, useTrips } from "@/providers/TripProvider";
+import { DailyMissionProvider } from "@/providers/DailyMissionProvider";
 import { useAchievements } from "@/providers/AchievementProvider";
 import { AnalyticsProvider, useAnalytics } from "@/providers/AnalyticsProvider";
 import { AchievementProvider } from "@/providers/AchievementProvider";
@@ -426,12 +427,14 @@ export default function RootLayout() {
                 <LocationSync />
                 <AchievementProvider>
                 <TripProvider>
+                  <DailyMissionProvider>
                   <AchievementSync />
                   <SafeAreaProvider>
                     <GestureHandlerRootView style={styles.container}>
                       <RootLayoutNav />
                     </GestureHandlerRootView>
                   </SafeAreaProvider>
+                  </DailyMissionProvider>
                 </TripProvider>
                 </AchievementProvider>
               </NotificationProvider>
