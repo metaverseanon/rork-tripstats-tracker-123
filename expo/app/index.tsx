@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
-import { StyleSheet, Animated, Image } from 'react-native';
+import { StyleSheet, Animated, Image, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
 
 const ONBOARDING_KEY = 'onboarding_completed';
 const WHATS_NEW_VERSION_KEY = 'whats_new_seen_version';
@@ -19,6 +20,7 @@ export default function WelcomeScreen() {
         const seenVersion = await AsyncStorage.getItem(WHATS_NEW_VERSION_KEY);
 
         let destination: string;
+        let destinationParams: Record<string, string> | undefined;
         if (completed !== 'true') {
           destination = '/onboarding';
         } else if (seenVersion !== CURRENT_APP_VERSION) {
@@ -27,7 +29,36 @@ export default function WelcomeScreen() {
           destination = '/(tabs)/track';
         }
 
+        if (completed === 'true' && Platform.OS !== 'web') {
+          try {
+            const lastResponse = await Notifications.getLastNotificationResponseAsync();
+            if (lastResponse) {
+              const data = lastResponse.notification.request.content.data as Record<string, unknown> | undefined;
+              const receivedAt = lastResponse.notification.date;
+              const isRecent = receivedAt && (Date.now() - receivedAt * 1000) < 60000;
+              if (isRecent && data?.type === 'new_follower' && data?.fromUserId) {
+                destination = '/user-profile';
+                destinationParams = { userId: data.fromUserId as string };
+                console.log('[WELCOME] Cold start new_follower notification, redirecting to user profile:', data.fromUserId);
+              } else if (isRecent && data?.type === 'post_rev') {
+                destination = '/(tabs)/feed';
+                console.log('[WELCOME] Cold start post_rev notification, redirecting to feed');
+              } else if (isRecent && data?.type === 'leaderboard_beat') {
+                destination = '/(tabs)/leaderboard';
+                console.log('[WELCOME] Cold start leaderboard_beat notification, redirecting to leaderboard');
+              } else if (isRecent && (data?.type === 'drive_ping' || data?.type === 'ping_accepted' || data?.type === 'ping_declined' || data?.type === 'location_shared' || data?.type === 'meetup_cancelled')) {
+                destination = '/(tabs)/leaderboard';
+                console.log('[WELCOME] Cold start drive notification, redirecting to leaderboard');
+              }
+            }
+          } catch (err) {
+            console.log('[WELCOME] Error checking initial notification:', err);
+          }
+        }
+
         console.log('[WELCOME] Routing to:', destination, '| onboarding:', completed, '| seenVersion:', seenVersion);
+
+        const delay = destination.startsWith('/user-profile') || destination.startsWith('/(tabs)/feed') || destination.startsWith('/(tabs)/leaderboard') ? 1200 : 4000;
 
         const timer = setTimeout(() => {
           Animated.timing(fadeAnim, {
@@ -35,9 +66,13 @@ export default function WelcomeScreen() {
             duration: 400,
             useNativeDriver: true,
           }).start(() => {
-            router.replace(destination as any);
+            if (destinationParams) {
+              router.replace({ pathname: destination as any, params: destinationParams });
+            } else {
+              router.replace(destination as any);
+            }
           });
-        }, 4000);
+        }, delay);
 
         return () => clearTimeout(timer);
       } catch (e) {
