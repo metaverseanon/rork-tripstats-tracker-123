@@ -11,6 +11,7 @@ import { ThemeType } from '@/constants/colors';
 import { useAchievements } from '@/providers/AchievementProvider';
 import { useState, useEffect } from 'react';
 import { trpc, trpcClient } from '@/lib/trpc';
+import DailyCard from '@/components/DailyCard';
 
 export default function SettingsScreen() {
   const { settings, colors, setSpeedUnit, setDistanceUnit, setTheme } = useSettings();
@@ -733,6 +734,12 @@ export default function SettingsScreen() {
             <ChevronRight size={20} color={colors.textLight} />
           </TouchableOpacity>
         </View>
+
+        {isAuthenticated && (
+          <View style={{ marginBottom: 8 }}>
+            <DailyCard />
+          </View>
+        )}
 
         {isAuthenticated && (
           <>

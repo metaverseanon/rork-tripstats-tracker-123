@@ -23,7 +23,6 @@ import AnimatedCard from '@/components/AnimatedCard';
 import { ThemeColors } from '@/constants/colors';
 import AuthGate from '@/components/AuthGate';
 import CommentsModal from '@/components/CommentsModal';
-import DailyCard from '@/components/DailyCard';
 
 interface FeedItem {
   id: string;
@@ -801,7 +800,6 @@ export default function FeedScreen() {
                 tintColor={colors.accent}
               />
             }
-            ListHeaderComponent={user ? <View style={{ paddingHorizontal: 16, paddingTop: 12 }}><DailyCard /></View> : null}
             ListEmptyComponent={emptyDrives}
           />
         )
