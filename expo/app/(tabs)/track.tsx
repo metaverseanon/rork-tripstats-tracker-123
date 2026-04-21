@@ -9,7 +9,6 @@ import { useSettings } from '@/providers/SettingsProvider';
 import { useUser } from '@/providers/UserProvider';
 import TripShareCard from '@/components/TripShareCard';
 import AuthGate from '@/components/AuthGate';
-import DailyCard from '@/components/DailyCard';
 
 let MapView: React.ComponentType<any> | null = null;
 let Polyline: React.ComponentType<any> | null = null;
@@ -252,10 +251,6 @@ export default function TrackScreen() {
     <>
       <ScrollView style={sStyles.scrollView} contentContainerStyle={sStyles.scrollContent} showsVerticalScrollIndicator={false}>
         {renderGauge()}
-
-        <View style={sStyles.dailySection}>
-          <DailyCard />
-        </View>
 
         <View style={sStyles.statsSection}>
           <View style={sStyles.row}>

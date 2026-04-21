@@ -17,7 +17,7 @@ function isStreakActiveToday(lastDriveDate: string): boolean {
 
 export default function DailyCard() {
   const { streak } = useAchievements();
-  const { mission, completed, progress, progressPercent, totalPoints } = useDailyMission();
+  const { mission, completed, progress, progressPercent } = useDailyMission();
   const { colors, convertSpeed, convertDistance, getSpeedLabel, getDistanceLabel } = useSettings();
 
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -79,23 +79,24 @@ export default function DailyCard() {
     <View style={styles.wrap}>
       <View style={styles.row}>
         <View style={[styles.streakBox, streakAlive && streakCount > 0 && styles.streakBoxActive]}>
-          <Animated.View style={{ transform: [{ scale: flameScale }] }}>
-            <Flame
-              size={22}
-              color={streakAlive && streakCount > 0 ? '#FF6B00' : colors.textLight}
-              fill={streakAlive && streakCount > 0 ? '#FF6B00' : 'transparent'}
-            />
-          </Animated.View>
-          <Text style={styles.streakValue}>{streakCount}</Text>
-          <Text style={styles.streakLabel}>day{streakCount === 1 ? '' : 's'} streak</Text>
-          {!drovenToday && streakCount > 0 && (
-            <Text style={styles.streakWarn}>Drive today to keep it alive</Text>
-          )}
-        </View>
-
-        <View style={styles.pointsBox}>
-          <Text style={styles.pointsValue}>{totalPoints}</Text>
-          <Text style={styles.pointsLabel}>mission pts</Text>
+          <View style={styles.streakInner}>
+            <Animated.View style={{ transform: [{ scale: flameScale }] }}>
+              <Flame
+                size={22}
+                color={streakAlive && streakCount > 0 ? '#FF6B00' : colors.textLight}
+                fill={streakAlive && streakCount > 0 ? '#FF6B00' : 'transparent'}
+              />
+            </Animated.View>
+            <View style={styles.streakTextWrap}>
+              <View style={styles.streakValueRow}>
+                <Text style={styles.streakValue}>{streakCount}</Text>
+                <Text style={styles.streakLabel}>day{streakCount === 1 ? '' : 's'} streak</Text>
+              </View>
+              {!drovenToday && streakCount > 0 && (
+                <Text style={styles.streakWarn}>Drive today to keep it alive</Text>
+              )}
+            </View>
+          </View>
         </View>
       </View>
 
@@ -110,12 +111,12 @@ export default function DailyCard() {
               {completed ? (
                 <View style={styles.completeBadge}>
                   <Check size={10} color="#FFFFFF" />
-                  <Text style={styles.completeBadgeText}>+{mission.reward} PTS</Text>
+                  <Text style={styles.completeBadgeText}>COMPLETE</Text>
                 </View>
               ) : (
                 <View style={styles.rewardBadge}>
                   <Target size={10} color={colors.accent} />
-                  <Text style={styles.rewardBadgeText}>+{mission.reward} PTS</Text>
+                  <Text style={styles.rewardBadgeText}>ACTIVE</Text>
                 </View>
               )}
             </View>
@@ -151,23 +152,35 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     marginBottom: 10,
   },
   streakBox: {
-    flex: 1.3,
+    flex: 1,
     backgroundColor: colors.cardLight,
     borderRadius: 16,
     padding: 14,
     borderWidth: 1,
     borderColor: colors.border,
   },
+  streakInner: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 12,
+  },
+  streakTextWrap: {
+    flex: 1,
+  },
+  streakValueRow: {
+    flexDirection: 'row' as const,
+    alignItems: 'baseline' as const,
+    gap: 8,
+  },
   streakBoxActive: {
     borderColor: '#FF6B00',
     backgroundColor: '#FF6B0010',
   },
   streakValue: {
-    fontSize: 30,
+    fontSize: 26,
     fontFamily: 'Orbitron_700Bold',
     color: colors.text,
-    marginTop: 6,
-    lineHeight: 34,
+    lineHeight: 30,
   },
   streakLabel: {
     fontSize: 10,
@@ -181,27 +194,7 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     color: '#FF6B00',
     marginTop: 4,
   },
-  pointsBox: {
-    flex: 1,
-    backgroundColor: colors.cardLight,
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-    justifyContent: 'center' as const,
-  },
-  pointsValue: {
-    fontSize: 28,
-    fontFamily: 'Orbitron_700Bold',
-    color: colors.text,
-  },
-  pointsLabel: {
-    fontSize: 10,
-    fontFamily: 'Orbitron_500Medium',
-    color: colors.textLight,
-    letterSpacing: 0.5,
-    marginTop: 2,
-  },
+
   missionCard: {
     backgroundColor: colors.cardLight,
     borderRadius: 16,
