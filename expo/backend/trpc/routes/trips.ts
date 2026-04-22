@@ -4,7 +4,7 @@ import { isDbConfigured, getSupabaseHeaders, getSupabaseRestUrl } from "../db";
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 
-const LEADERBOARD_EXCLUDED_USER_IDS: string[] = ["1776777191940"];
+const LEADERBOARD_EXCLUDED_USER_IDS: string[] = ["1776777191940", "1775465396933"];
 
 function convertSpeedForUnit(speedKmh: number, unit?: string): { value: number; label: string } {
   if (unit === 'mph') {
