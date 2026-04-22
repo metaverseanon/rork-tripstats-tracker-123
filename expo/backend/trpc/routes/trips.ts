@@ -4,6 +4,8 @@ import { isDbConfigured, getSupabaseHeaders, getSupabaseRestUrl } from "../db";
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 
+const LEADERBOARD_EXCLUDED_USER_IDS: string[] = ["1776777191940"];
+
 function convertSpeedForUnit(speedKmh: number, unit?: string): { value: number; label: string } {
   if (unit === 'mph') {
     return { value: Math.round(speedKmh * 0.621371), label: 'mph' };
@@ -508,6 +510,10 @@ async function getTotalDistanceLeaderboard(input: {
     let url = getSupabaseRestUrl("trips");
     const params: string[] = ["select=id,user_id,user_name,user_profile_picture,start_time,end_time,distance,duration,avg_speed,top_speed,corners,car_model,acceleration,max_g_force,country,city,time_0_to_100,time_0_to_200,time_100_to_200,time_0_to_300,route_points", "distance=gt.0"];
 
+    if (LEADERBOARD_EXCLUDED_USER_IDS.length > 0) {
+      params.push(`user_id=not.in.(${LEADERBOARD_EXCLUDED_USER_IDS.map(id => encodeURIComponent(id)).join(",")})`);
+    }
+
     if (input.country) {
       params.push(buildCountryFilter(input.country));
     }
@@ -732,6 +738,10 @@ export const tripsRouter = createTRPCRouter({
         const params: string[] = [];
         
         params.push("select=id,user_id,user_name,user_profile_picture,start_time,end_time,distance,duration,avg_speed,top_speed,corners,car_model,acceleration,max_g_force,country,city,time_0_to_100,time_0_to_200,time_100_to_200,time_0_to_300,route_points");
+
+        if (LEADERBOARD_EXCLUDED_USER_IDS.length > 0) {
+          params.push(`user_id=not.in.(${LEADERBOARD_EXCLUDED_USER_IDS.map(id => encodeURIComponent(id)).join(",")})`);
+        }
 
         if (input.country) {
           params.push(buildCountryFilter(input.country));
