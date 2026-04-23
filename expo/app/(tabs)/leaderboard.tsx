@@ -890,45 +890,10 @@ export default function LeaderboardScreen() {
 
   const leaderboardData = useMemo(() => {
     if (activeCategory === 'challengesCompleted') return [];
-    const backendTrips: LeaderboardTrip[] = (leaderboardTripsQuery.data || []).map(t => {
-      const raw = t as Record<string, unknown>;
-      let routePoints: RoutePoint[] | undefined;
-
-      if (Array.isArray(raw.routePoints) && raw.routePoints.length > 0) {
-        routePoints = raw.routePoints as RoutePoint[];
-      } else if (typeof raw.routePoints === 'string') {
-        try {
-          const parsed = JSON.parse(raw.routePoints as string);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            routePoints = parsed as RoutePoint[];
-          }
-        } catch (e) {
-          console.error('[LEADERBOARD_UI] Failed to parse routePoints string for trip:', t.id, e);
-        }
-      }
-
-      if (!routePoints) {
-        const rawSnake = raw.route_points;
-        if (Array.isArray(rawSnake) && rawSnake.length > 0) {
-          routePoints = (rawSnake as RoutePoint[]);
-        } else if (typeof rawSnake === 'string') {
-          try {
-            const parsed = JSON.parse(rawSnake as string);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-              routePoints = parsed as RoutePoint[];
-            }
-          } catch (e) {
-            console.error('[LEADERBOARD_UI] Failed to parse route_points string for trip:', t.id, e);
-          }
-        }
-      }
-
-      return {
-        ...t,
-        locations: [],
-        routePoints,
-      };
-    });
+    const backendTrips: LeaderboardTrip[] = (leaderboardTripsQuery.data || []).map(t => ({
+      ...t,
+      locations: [],
+    }));
     
     const allTrips = [...backendTrips];
     
@@ -1086,6 +1051,20 @@ export default function LeaderboardScreen() {
     setSelectedTrip(trip);
     setShowTripDetail(true);
   }, []);
+
+  const needsRemoteRoutePoints = !!selectedTrip
+    && (!selectedTrip.locations || selectedTrip.locations.length <= 1)
+    && (!selectedTrip.routePoints || selectedTrip.routePoints.length <= 1);
+
+  const tripRoutePointsQuery = trpc.trips.getTripRoutePoints.useQuery(
+    { tripId: selectedTrip?.id || '' },
+    {
+      enabled: showTripDetail && needsRemoteRoutePoints && !!selectedTrip?.id,
+      staleTime: 5 * 60 * 1000,
+    }
+  );
+
+  const remoteRoutePoints = tripRoutePointsQuery.data?.routePoints as RoutePoint[] | undefined;
 
   const closeTripDetail = useCallback(() => {
     setShowTripDetail(false);
@@ -1864,6 +1843,8 @@ export default function LeaderboardScreen() {
                 mapCoords = selectedTrip.locations.map(l => ({ latitude: l.latitude, longitude: l.longitude }));
               } else if (selectedTrip.routePoints && selectedTrip.routePoints.length > 1) {
                 mapCoords = selectedTrip.routePoints;
+              } else if (remoteRoutePoints && remoteRoutePoints.length > 1) {
+                mapCoords = remoteRoutePoints;
               }
               const hasMap = mapCoords.length > 1;
 
