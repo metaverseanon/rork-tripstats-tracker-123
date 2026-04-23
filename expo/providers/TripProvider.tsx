@@ -651,6 +651,11 @@ export const [TripProvider, useTrips] = createContextHook(() => {
             { type: 'speed_camera_warning', cameraId: camera.id }
           ).catch(console.error);
         }
+        if (!detectedCameraIds.current.has(camera.id)) {
+          detectedCameraIds.current.add(camera.id);
+          speedCamerasCount.current++;
+          console.log('[SPEED_CAMERA] Counted camera (via warning radius):', camera.id, camera.description);
+        }
       }
 
       const nearbyCameras = getNearbyCameras(newLocation.latitude, newLocation.longitude);
@@ -752,6 +757,11 @@ export const [TripProvider, useTrips] = createContextHook(() => {
             `${camera.description || 'Speed camera'} nearby${limitText}`,
             { type: 'speed_camera_warning', cameraId: camera.id }
           ).catch(console.error);
+        }
+        if (!detectedCameraIds.current.has(camera.id)) {
+          detectedCameraIds.current.add(camera.id);
+          speedCamerasCount.current++;
+          console.log('[SPEED_CAMERA] Counted camera (via warning radius):', camera.id, camera.description);
         }
       }
 
