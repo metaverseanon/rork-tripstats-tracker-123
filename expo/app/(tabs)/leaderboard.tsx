@@ -973,6 +973,44 @@ export default function LeaderboardScreen() {
     return [...new Set(ids)];
   }, [leaderboardData, user?.id]);
 
+  const leaderboardTripIds = useMemo(() => {
+    const ids = leaderboardData
+      .map(t => t.id)
+      .filter((id): id is string => !!id)
+      .filter(id => {
+        const t = leaderboardData.find(x => x.id === id);
+        const hasLocal = (t?.locations && t.locations.length > 1) || (t?.routePoints && t.routePoints.length > 1);
+        return !hasLocal;
+      });
+    return [...new Set(ids)].slice(0, 20);
+  }, [leaderboardData]);
+
+  const batchRoutesQuery = trpc.trips.getBatchRoutePoints.useQuery(
+    { tripIds: leaderboardTripIds },
+    {
+      enabled: leaderboardTripIds.length > 0,
+      staleTime: 5 * 60_000,
+      gcTime: 10 * 60_000,
+      refetchOnMount: false,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+    }
+  );
+
+  const batchRoutes = batchRoutesQuery.data?.routes ?? {};
+
+  const getTripRoute = useCallback((trip: LeaderboardTrip): RoutePoint[] => {
+    if (trip.locations && trip.locations.length > 1) {
+      return trip.locations.map(l => ({ latitude: l.latitude, longitude: l.longitude }));
+    }
+    if (trip.routePoints && trip.routePoints.length > 1) {
+      return trip.routePoints;
+    }
+    const remote = trip.id ? batchRoutes[trip.id] : undefined;
+    if (remote && remote.length > 1) return remote;
+    return [];
+  }, [batchRoutes]);
+
   const batchFollowQuery = trpc.social.batchIsFollowing.useQuery(
     { followerId: user?.id || '', followingIds: leaderboardUserIds },
     { enabled: !!user?.id && leaderboardUserIds.length > 0 }
@@ -1558,6 +1596,8 @@ export default function LeaderboardScreen() {
                 const ringColor = rank === 1 ? colors.accent : rank === 2 ? '#C0C0C0' : '#CD7F32';
                 const podiumStats = getSecondaryStats(trip);
                 const tripLocation = trip.location?.city && trip.location.city !== 'Unknown' ? trip.location.city : null;
+                const podiumRoute = getTripRoute(trip);
+                const hasPodiumMap = podiumRoute.length > 1 && Platform.OS !== 'web';
 
                 return (
                   <TouchableOpacity
@@ -1609,6 +1649,23 @@ export default function LeaderboardScreen() {
                         <Text style={styles.podiumLocationText} numberOfLines={1}>{tripLocation}</Text>
                       </View>
                     )}
+                    {hasPodiumMap && (
+                      <View style={[styles.podiumMap, isFirst && styles.podiumMapFirst]} pointerEvents="none">
+                        <MapView
+                          style={styles.podiumMapView}
+                          initialRegion={getMapRegion(podiumRoute)}
+                          scrollEnabled={false}
+                          zoomEnabled={false}
+                          rotateEnabled={false}
+                          pitchEnabled={false}
+                          liteMode
+                          toolbarEnabled={false}
+                          pointerEvents="none"
+                        >
+                          <Polyline coordinates={podiumRoute} strokeColor="#CC0000" strokeWidth={3} />
+                        </MapView>
+                      </View>
+                    )}
                   </TouchableOpacity>
                 );
               };
@@ -1652,6 +1709,8 @@ export default function LeaderboardScreen() {
               const carInfo = getCarInfo(trip);
               const isCurrentUser = trip.userId === user?.id || trip.userName === user?.displayName;
               const displayProfilePic = isCurrentUser ? (user?.profilePicture || trip.userProfilePicture) : trip.userProfilePicture;
+              const route = getTripRoute(trip);
+              const hasMap = route.length > 1 && Platform.OS !== 'web';
 
               return (
                 <AnimatedCard key={trip.id || `trip-${rank}`} index={index + 2} slideDistance={20} duration={300}>
@@ -1742,6 +1801,27 @@ export default function LeaderboardScreen() {
                       </View>
                     )}
                   </View>
+                  {hasMap ? (
+                    <View style={styles.competitorMap} pointerEvents="none">
+                      <MapView
+                        style={styles.competitorMapView}
+                        initialRegion={getMapRegion(route)}
+                        scrollEnabled={false}
+                        zoomEnabled={false}
+                        rotateEnabled={false}
+                        pitchEnabled={false}
+                        liteMode
+                        toolbarEnabled={false}
+                        pointerEvents="none"
+                      >
+                        <Polyline coordinates={route} strokeColor="#CC0000" strokeWidth={3} />
+                      </MapView>
+                    </View>
+                  ) : (
+                    <View style={styles.competitorMapPlaceholder}>
+                      <Route size={18} color={colors.textLight} />
+                    </View>
+                  )}
                 </TouchableOpacity>
                 </AnimatedCard>
               );
@@ -2905,6 +2985,46 @@ const createStyles = (colors: ThemeColors) => StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Orbitron_700Bold',
     color: colors.accent,
+  },
+  competitorMap: {
+    width: 60,
+    height: 60,
+    borderRadius: 10,
+    overflow: 'hidden' as const,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  competitorMapView: {
+    width: '100%' as const,
+    height: '100%' as const,
+  },
+  competitorMapPlaceholder: {
+    width: 60,
+    height: 60,
+    borderRadius: 10,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  podiumMap: {
+    marginTop: 8,
+    width: '100%' as const,
+    height: 56,
+    borderRadius: 8,
+    overflow: 'hidden' as const,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  podiumMapFirst: {
+    height: 72,
+  },
+  podiumMapView: {
+    width: '100%' as const,
+    height: '100%' as const,
   },
   activeMeetupBannerButton: {
     flexDirection: 'row' as const,

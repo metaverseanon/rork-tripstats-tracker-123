@@ -880,6 +880,43 @@ export const tripsRouter = createTRPCRouter({
       }
     }),
 
+  getBatchRoutePoints: publicProcedure
+    .input(z.object({ tripIds: z.array(z.string()).max(50) }))
+    .query(async ({ input }) => {
+      if (!isDbConfigured() || input.tripIds.length === 0) {
+        return { routes: {} as Record<string, { latitude: number; longitude: number }[]> };
+      }
+      try {
+        const idsParam = input.tripIds.map((id) => encodeURIComponent(id)).join(",");
+        const url = `${getSupabaseRestUrl("trips")}?id=in.(${idsParam})&select=id,route_points`;
+        const response = await fetch(url, { method: "GET", headers: getSupabaseHeaders() });
+        if (!response.ok) {
+          console.error("[TRIPS] getBatchRoutePoints failed:", await response.text());
+          return { routes: {} as Record<string, { latitude: number; longitude: number }[]> };
+        }
+        const rows: { id: string; route_points?: unknown }[] = await response.json();
+        const routes: Record<string, { latitude: number; longitude: number }[]> = {};
+        for (const row of rows) {
+          let pts: { latitude: number; longitude: number }[] = [];
+          const raw = row.route_points;
+          if (typeof raw === "string") {
+            try { pts = JSON.parse(raw); } catch { pts = []; }
+          } else if (Array.isArray(raw)) {
+            pts = raw as { latitude: number; longitude: number }[];
+          }
+          if (pts.length > 40) {
+            const step = Math.ceil(pts.length / 40);
+            pts = pts.filter((_, i) => i % step === 0 || i === pts.length - 1);
+          }
+          routes[row.id] = pts;
+        }
+        return { routes };
+      } catch (error) {
+        console.error("[TRIPS] getBatchRoutePoints error:", error);
+        return { routes: {} as Record<string, { latitude: number; longitude: number }[]> };
+      }
+    }),
+
   getUserTrips: publicProcedure
     .input(z.object({ userId: z.string() }))
     .query(async ({ input }) => {
