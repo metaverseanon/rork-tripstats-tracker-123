@@ -1097,15 +1097,22 @@ export default function LeaderboardScreen() {
     setShowTripDetail(true);
   }, []);
 
+  const batchRouteForSelected = selectedTrip?.id ? batchRoutes[selectedTrip.id] : undefined;
+
   const needsRemoteRoutePoints = !!selectedTrip
     && (!selectedTrip.locations || selectedTrip.locations.length <= 1)
-    && (!selectedTrip.routePoints || selectedTrip.routePoints.length <= 1);
+    && (!selectedTrip.routePoints || selectedTrip.routePoints.length <= 1)
+    && (!batchRouteForSelected || batchRouteForSelected.length <= 1);
 
   const tripRoutePointsQuery = trpc.trips.getTripRoutePoints.useQuery(
     { tripId: selectedTrip?.id || '' },
     {
       enabled: showTripDetail && needsRemoteRoutePoints && !!selectedTrip?.id,
       staleTime: 5 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
+      refetchOnMount: false,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
     }
   );
 
@@ -1930,10 +1937,13 @@ export default function LeaderboardScreen() {
                 mapCoords = selectedTrip.locations.map(l => ({ latitude: l.latitude, longitude: l.longitude }));
               } else if (selectedTrip.routePoints && selectedTrip.routePoints.length > 1) {
                 mapCoords = selectedTrip.routePoints;
+              } else if (batchRouteForSelected && batchRouteForSelected.length > 1) {
+                mapCoords = batchRouteForSelected;
               } else if (remoteRoutePoints && remoteRoutePoints.length > 1) {
                 mapCoords = remoteRoutePoints;
               }
               const hasMap = mapCoords.length > 1;
+              const isLoadingMap = !hasMap && tripRoutePointsQuery.isLoading && needsRemoteRoutePoints;
 
               return (
               <ScrollView style={styles.tripDetailScroll} showsVerticalScrollIndicator={false}>
@@ -1972,8 +1982,17 @@ export default function LeaderboardScreen() {
                   </View>
                 ) : (
                   <View style={styles.noMapContainer}>
-                    <Route size={32} color={colors.textLight} />
-                    <Text style={styles.noMapText}>Route map not available</Text>
+                    {isLoadingMap ? (
+                      <>
+                        <ActivityIndicator size="small" color={colors.primary} />
+                        <Text style={styles.noMapText}>Loading route…</Text>
+                      </>
+                    ) : (
+                      <>
+                        <Route size={32} color={colors.textLight} />
+                        <Text style={styles.noMapText}>Route map not available</Text>
+                      </>
+                    )}
                   </View>
                 )}
 

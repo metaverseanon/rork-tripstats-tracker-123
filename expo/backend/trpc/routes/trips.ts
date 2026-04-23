@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "../create-context";
 import { isDbConfigured, getSupabaseHeaders, getSupabaseRestUrl } from "../db";
-import { cachedOrFetch, cacheInvalidatePrefix } from "../cache";
+import { cachedOrFetch, cacheInvalidatePrefix, cacheGet, cacheSet } from "../cache";
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 
@@ -857,27 +857,29 @@ export const tripsRouter = createTRPCRouter({
     .input(z.object({ tripId: z.string() }))
     .query(async ({ input }) => {
       if (!isDbConfigured()) return { routePoints: [] as { latitude: number; longitude: number }[] };
-      try {
-        const url = `${getSupabaseRestUrl("trips")}?id=eq.${encodeURIComponent(input.tripId)}&select=route_points&limit=1`;
-        const response = await fetch(url, { method: "GET", headers: getSupabaseHeaders() });
-        if (!response.ok) {
-          console.error("[TRIPS] getTripRoutePoints failed:", await response.text());
+      return cachedOrFetch(`trip-route:${input.tripId}`, 10 * 60_000, async () => {
+        try {
+          const url = `${getSupabaseRestUrl("trips")}?id=eq.${encodeURIComponent(input.tripId)}&select=route_points&limit=1`;
+          const response = await fetch(url, { method: "GET", headers: getSupabaseHeaders() });
+          if (!response.ok) {
+            console.error("[TRIPS] getTripRoutePoints failed:", await response.text());
+            return { routePoints: [] as { latitude: number; longitude: number }[] };
+          }
+          const rows: { route_points?: unknown }[] = await response.json();
+          if (rows.length === 0) return { routePoints: [] as { latitude: number; longitude: number }[] };
+          const raw = rows[0].route_points;
+          let routePoints: { latitude: number; longitude: number }[] = [];
+          if (typeof raw === "string") {
+            try { routePoints = JSON.parse(raw); } catch { routePoints = []; }
+          } else if (Array.isArray(raw)) {
+            routePoints = raw as { latitude: number; longitude: number }[];
+          }
+          return { routePoints };
+        } catch (error) {
+          console.error("[TRIPS] getTripRoutePoints error:", error);
           return { routePoints: [] as { latitude: number; longitude: number }[] };
         }
-        const rows: { route_points?: unknown }[] = await response.json();
-        if (rows.length === 0) return { routePoints: [] as { latitude: number; longitude: number }[] };
-        const raw = rows[0].route_points;
-        let routePoints: { latitude: number; longitude: number }[] = [];
-        if (typeof raw === "string") {
-          try { routePoints = JSON.parse(raw); } catch { routePoints = []; }
-        } else if (Array.isArray(raw)) {
-          routePoints = raw as { latitude: number; longitude: number }[];
-        }
-        return { routePoints };
-      } catch (error) {
-        console.error("[TRIPS] getTripRoutePoints error:", error);
-        return { routePoints: [] as { latitude: number; longitude: number }[] };
-      }
+      });
     }),
 
   getBatchRoutePoints: publicProcedure
@@ -886,16 +888,32 @@ export const tripsRouter = createTRPCRouter({
       if (!isDbConfigured() || input.tripIds.length === 0) {
         return { routes: {} as Record<string, { latitude: number; longitude: number }[]> };
       }
+
+      const result: Record<string, { latitude: number; longitude: number }[]> = {};
+      const missing: string[] = [];
+      for (const id of input.tripIds) {
+        const cached = cacheGet<{ latitude: number; longitude: number }[]>(`trip-route-mini:${id}`);
+        if (cached) {
+          result[id] = cached;
+        } else {
+          missing.push(id);
+        }
+      }
+
+      if (missing.length === 0) {
+        console.log(`[CACHE] batch-routes all hit (${input.tripIds.length})`);
+        return { routes: result };
+      }
+
       try {
-        const idsParam = input.tripIds.map((id) => encodeURIComponent(id)).join(",");
+        const idsParam = missing.map((id) => encodeURIComponent(id)).join(",");
         const url = `${getSupabaseRestUrl("trips")}?id=in.(${idsParam})&select=id,route_points`;
         const response = await fetch(url, { method: "GET", headers: getSupabaseHeaders() });
         if (!response.ok) {
           console.error("[TRIPS] getBatchRoutePoints failed:", await response.text());
-          return { routes: {} as Record<string, { latitude: number; longitude: number }[]> };
+          return { routes: result };
         }
         const rows: { id: string; route_points?: unknown }[] = await response.json();
-        const routes: Record<string, { latitude: number; longitude: number }[]> = {};
         for (const row of rows) {
           let pts: { latitude: number; longitude: number }[] = [];
           const raw = row.route_points;
@@ -904,16 +922,23 @@ export const tripsRouter = createTRPCRouter({
           } else if (Array.isArray(raw)) {
             pts = raw as { latitude: number; longitude: number }[];
           }
-          if (pts.length > 40) {
-            const step = Math.ceil(pts.length / 40);
+          if (pts.length > 30) {
+            const step = Math.ceil(pts.length / 30);
             pts = pts.filter((_, i) => i % step === 0 || i === pts.length - 1);
           }
-          routes[row.id] = pts;
+          result[row.id] = pts;
+          cacheSet(`trip-route-mini:${row.id}`, pts, 10 * 60_000);
         }
-        return { routes };
+        for (const id of missing) {
+          if (!(id in result)) {
+            result[id] = [];
+            cacheSet(`trip-route-mini:${id}`, [], 60_000);
+          }
+        }
+        return { routes: result };
       } catch (error) {
         console.error("[TRIPS] getBatchRoutePoints error:", error);
-        return { routes: {} as Record<string, { latitude: number; longitude: number }[]> };
+        return { routes: result };
       }
     }),
 
