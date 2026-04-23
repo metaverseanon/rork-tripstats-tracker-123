@@ -82,50 +82,66 @@ async function sendLeaderboardBeatNotifications(input: {
   try {
     console.log("[LEADERBOARD_NOTIFY] Checking if user beat anyone. topSpeed:", input.topSpeed, "city:", input.city);
 
-    const tripsUrl = `${getSupabaseRestUrl("trips")}?select=user_id,top_speed,city,country&top_speed=gt.0&order=top_speed.desc&limit=1000`;
+    const tripsUrl = `${getSupabaseRestUrl("trips")}?select=user_id,top_speed,city,country,start_time&top_speed=gt.0&order=top_speed.desc&limit=2000`;
     const tripsResp = await fetch(tripsUrl, { method: "GET", headers: getSupabaseHeaders() });
     if (!tripsResp.ok) {
       console.error("[LEADERBOARD_NOTIFY] Failed to fetch trips for comparison");
       return;
     }
 
-    const allTrips: { user_id: string; top_speed: number; city?: string; country?: string }[] = await tripsResp.json();
+    const allTrips: { user_id: string; top_speed: number; city?: string; country?: string; start_time?: number }[] = await tripsResp.json();
 
-    const userBestSpeeds = new Map<string, number>();
-    const userBestCitySpeeds = new Map<string, number>();
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const dayOfWeek = (now.getDay() + 6) % 7;
+    const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOfWeek).getTime();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+
+    const userBestAll = new Map<string, number>();
+    const userBestToday = new Map<string, number>();
+    const userBestWeek = new Map<string, number>();
+    const userBestMonth = new Map<string, number>();
+    const userBestCity = new Map<string, number>();
+
     for (const t of allTrips) {
       if (t.user_id === input.userId) continue;
-      const existing = userBestSpeeds.get(t.user_id);
-      if (!existing || t.top_speed > existing) {
-        userBestSpeeds.set(t.user_id, t.top_speed);
-      }
+      const setMax = (m: Map<string, number>, uid: string, v: number) => {
+        const e = m.get(uid);
+        if (!e || v > e) m.set(uid, v);
+      };
+      setMax(userBestAll, t.user_id, t.top_speed);
+      const st = t.start_time ?? 0;
+      if (st >= todayStart) setMax(userBestToday, t.user_id, t.top_speed);
+      if (st >= weekStart) setMax(userBestWeek, t.user_id, t.top_speed);
+      if (st >= monthStart) setMax(userBestMonth, t.user_id, t.top_speed);
       if (input.city && t.city && t.city === input.city) {
-        const ec = userBestCitySpeeds.get(t.user_id);
-        if (!ec || t.top_speed > ec) {
-          userBestCitySpeeds.set(t.user_id, t.top_speed);
-        }
+        setMax(userBestCity, t.user_id, t.top_speed);
       }
     }
 
-    const beatenUserIds: string[] = [];
-    const beatenInCityIds = new Set<string>();
-    for (const [uid, bestSpeed] of userBestSpeeds) {
-      if (input.topSpeed > bestSpeed) {
-        beatenUserIds.push(uid);
-      }
-    }
-    for (const [uid, bestCitySpeed] of userBestCitySpeeds) {
-      if (input.topSpeed > bestCitySpeed) {
-        beatenInCityIds.add(uid);
-      }
-    }
+    type Scope = "today" | "week" | "month" | "city" | "all";
+    const beatenScope = new Map<string, Scope>();
+    const setScope = (uid: string, scope: Scope) => {
+      if (!beatenScope.has(uid)) beatenScope.set(uid, scope);
+    };
+
+    for (const [uid, v] of userBestToday) if (input.topSpeed > v) setScope(uid, "today");
+    for (const [uid, v] of userBestWeek) if (input.topSpeed > v) setScope(uid, "week");
+    for (const [uid, v] of userBestMonth) if (input.topSpeed > v) setScope(uid, "month");
+    for (const [uid, v] of userBestCity) if (input.topSpeed > v) setScope(uid, "city");
+    for (const [uid, v] of userBestAll) if (input.topSpeed > v) setScope(uid, "all");
+
+    const beatenUserIds: string[] = Array.from(beatenScope.keys());
+    const beatenInCityIds = new Set<string>(
+      Array.from(beatenScope.entries()).filter(([, s]) => s === "city").map(([uid]) => uid)
+    );
 
     if (beatenUserIds.length === 0) {
       console.log("[LEADERBOARD_NOTIFY] No users beaten");
       return;
     }
 
-    console.log("[LEADERBOARD_NOTIFY] Beaten user IDs:", beatenUserIds.length, "in-city:", beatenInCityIds.size);
+    console.log("[LEADERBOARD_NOTIFY] Beaten user IDs:", beatenUserIds.length, "in-city:", beatenInCityIds.size, "scopes:", JSON.stringify(Array.from(beatenScope.values()).reduce<Record<string, number>>((acc, s) => { acc[s] = (acc[s] ?? 0) + 1; return acc; }, {})));
 
     const usersUrl = `${getSupabaseRestUrl("users")}?select=id,display_name,push_token,speed_unit`;
     const usersResp = await fetch(usersUrl, { method: "GET", headers: getSupabaseHeaders() });
@@ -149,13 +165,22 @@ async function sendLeaderboardBeatNotifications(input: {
 
     const messages = usersToNotify.map(u => {
       const speed = convertSpeedForUnit(input.topSpeed, u.speed_unit);
-      const beatInCity = input.city && beatenInCityIds.has(u.id);
-      const title = beatInCity
-        ? `🏁 Someone in ${input.city} just beat your top speed!`
-        : "🏁 You've been overtaken!";
-      const body = beatInCity
-        ? `${driverName}${carInfo} hit ${speed.value} ${speed.label} in ${input.city}. Can you reclaim it?`
-        : `${driverName} just beat you${carInfo} hitting ${speed.value} ${speed.label}!`;
+      const scope = beatenScope.get(u.id) ?? "all";
+      let title = "🏁 You've been overtaken!";
+      let body = `${driverName} just beat you${carInfo} hitting ${speed.value} ${speed.label}!`;
+      if (scope === "city" && input.city) {
+        title = `🏁 Someone in ${input.city} just beat your top speed!`;
+        body = `${driverName}${carInfo} hit ${speed.value} ${speed.label} in ${input.city}. Can you reclaim it?`;
+      } else if (scope === "today") {
+        title = "🏁 You've been overtaken today!";
+        body = `${driverName}${carInfo} just beat your top speed today with ${speed.value} ${speed.label}!`;
+      } else if (scope === "week") {
+        title = "🏁 Overtaken this week!";
+        body = `${driverName}${carInfo} just beat your top speed this week with ${speed.value} ${speed.label}!`;
+      } else if (scope === "month") {
+        title = "🏁 Overtaken this month!";
+        body = `${driverName}${carInfo} just beat your top speed this month with ${speed.value} ${speed.label}!`;
+      }
       return {
         to: u.push_token!,
         title,
@@ -167,7 +192,7 @@ async function sendLeaderboardBeatNotifications(input: {
           topSpeed: input.topSpeed,
           city: input.city,
           country: input.country,
-          scope: beatInCity ? "city" : "global",
+          scope,
         },
         channelId: "default",
         priority: "high" as const,
