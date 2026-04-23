@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "../create-context";
 import { isDbConfigured, getSupabaseHeaders, getSupabaseRestUrl } from "../db";
+import { cachedOrFetch } from "../cache";
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 
@@ -585,9 +586,9 @@ export const socialRouter = createTRPCRouter({
       limit: z.number().optional().default(10),
     }))
     .query(async ({ input }) => {
-      console.log("[SOCIAL] Fetching challenges leaderboard");
       if (!isDbConfigured()) return [];
-
+      return cachedOrFetch(`challenges-leaderboard:${input.limit}`, 60_000, async () => {
+      console.log("[SOCIAL] Fetching challenges leaderboard");
       try {
         const achUrl = `${getSupabaseRestUrl("user_achievements")}?select=user_id,achievement_id`;
         const achResp = await fetch(achUrl, { method: "GET", headers: getSupabaseHeaders() });
@@ -630,6 +631,7 @@ export const socialRouter = createTRPCRouter({
         console.error("[SOCIAL] Challenges leaderboard error:", error);
         return [];
       }
+      });
     }),
 
   revActivity: publicProcedure

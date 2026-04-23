@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "../create-context";
 import { isDbConfigured, getSupabaseHeaders, getSupabaseRestUrl } from "../db";
+import { cachedOrFetch, cacheInvalidatePrefix } from "../cache";
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 
@@ -423,21 +424,6 @@ async function enrichTripsWithUserCars(trips: SyncedTrip[]): Promise<SyncedTrip[
       }
     }
 
-    const stillNeedPic = userIdsNeedingPic.filter(id => !userProfilePicMap.has(id));
-    if (stillNeedPic.length > 0) {
-      const idsParam = stillNeedPic.map(id => `"${id}"`).join(',');
-      const picUrl = `${getSupabaseRestUrl('trips')}?user_id=in.(${idsParam})&user_profile_picture=neq.null&select=user_id,user_profile_picture&order=start_time.desc`;
-      const picResp = await fetch(picUrl, { method: 'GET', headers: getSupabaseHeaders() });
-      if (picResp.ok) {
-        const picRows: { user_id: string; user_profile_picture: string }[] = await picResp.json();
-        for (const row of picRows) {
-          if (!userProfilePicMap.has(row.user_id) && row.user_profile_picture) {
-            userProfilePicMap.set(row.user_id, row.user_profile_picture);
-          }
-        }
-      }
-    }
-
     console.log('[LEADERBOARD] Found car info for', userCarMap.size, ', pics for', userProfilePicMap.size, 'users');
 
     return trips.map(trip => {
@@ -684,6 +670,8 @@ export const tripsRouter = createTRPCRouter({
 
         createActivityFeedEntry(input).catch((err: unknown) => console.error("[TRIPS] Activity feed entry error:", err));
 
+        cacheInvalidatePrefix("leaderboard:");
+
         return { success: true };
       } catch (error) {
         console.error("[TRIPS] Error syncing trip:", input.id, "for user:", input.userId);
@@ -715,19 +703,22 @@ export const tripsRouter = createTRPCRouter({
       })
     )
     .query(async ({ input }) => {
-      console.log("[LEADERBOARD] v2 Fetching leaderboard for category:", input.category, "filters:", JSON.stringify({
-        country: input.country,
-        city: input.city,
-        carBrand: input.carBrand,
-        carModel: input.carModel,
-        timePeriod: input.timePeriod,
-        limit: input.limit,
-      }));
-
       if (!isDbConfigured()) {
         console.log("[LEADERBOARD] Database not configured");
         return [];
       }
+
+      const cacheKey = `leaderboard:${input.category}:${input.country ?? ''}:${input.city ?? ''}:${input.carBrand ?? ''}:${input.carModel ?? ''}:${input.timePeriod ?? ''}:${input.timePeriodStart ?? ''}:${input.limit}`;
+
+      return cachedOrFetch(cacheKey, 45000, async () => {
+        console.log("[LEADERBOARD] v2 Fetching leaderboard for category:", input.category, "filters:", JSON.stringify({
+          country: input.country,
+          city: input.city,
+          carBrand: input.carBrand,
+          carModel: input.carModel,
+          timePeriod: input.timePeriod,
+          limit: input.limit,
+        }));
 
       try {
         if (input.category === "totalDistance") {
@@ -859,6 +850,7 @@ export const tripsRouter = createTRPCRouter({
         console.error("[LEADERBOARD] Error fetching trips:", error);
         return [];
       }
+      });
     }),
 
   getTripRoutePoints: publicProcedure

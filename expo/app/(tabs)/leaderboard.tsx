@@ -6,6 +6,7 @@ import * as Location from 'expo-location';
 import type { DriveMeetup } from '@/types/meetup';
 import * as Haptics from 'expo-haptics';
 import { trpc } from '@/lib/trpc';
+import { keepPreviousData } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import MapView, { Polyline, Marker } from 'react-native-maps';
 import { useTrips } from '@/providers/TripProvider';
@@ -837,9 +838,12 @@ export default function LeaderboardScreen() {
       limit: 10,
     },
     {
-      refetchInterval: 60000,
-      staleTime: 15000,
-      refetchOnMount: true,
+      staleTime: 60_000,
+      gcTime: 10 * 60_000,
+      refetchOnMount: false,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      placeholderData: keepPreviousData,
       enabled: activeCategory !== 'challengesCompleted',
     }
   );
@@ -848,9 +852,12 @@ export default function LeaderboardScreen() {
     { limit: 10 },
     {
       enabled: activeCategory === 'challengesCompleted',
-      refetchInterval: 60000,
-      staleTime: 15000,
-      refetchOnMount: true,
+      staleTime: 60_000,
+      gcTime: 10 * 60_000,
+      refetchOnMount: false,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      placeholderData: keepPreviousData,
     }
   );
 
