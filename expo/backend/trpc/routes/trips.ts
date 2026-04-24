@@ -7,6 +7,30 @@ const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 
 const LEADERBOARD_EXCLUDED_USER_IDS: string[] = ["1776777191940", "1775465396933", "1776178603997"];
 
+// Debounced refresh of the leaderboard_top_ten materialized view.
+// Called after trip sync so the view stays fresh without blocking writes.
+let leaderboardRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+let leaderboardRefreshInFlight = false;
+function scheduleLeaderboardRefresh(): void {
+  if (leaderboardRefreshTimer) return;
+  leaderboardRefreshTimer = setTimeout(() => {
+    leaderboardRefreshTimer = null;
+    if (leaderboardRefreshInFlight) return;
+    leaderboardRefreshInFlight = true;
+    const url = getSupabaseRestUrl("rpc/refresh_leaderboard_top_ten");
+    fetch(url, { method: "POST", headers: { ...getSupabaseHeaders(), "Content-Type": "application/json" }, body: "{}" })
+      .then(async (r) => {
+        if (!r.ok) {
+          console.error("[LEADERBOARD] refresh RPC failed:", r.status, await r.text());
+        } else {
+          console.log("[LEADERBOARD] materialized view refreshed");
+        }
+      })
+      .catch((e) => console.error("[LEADERBOARD] refresh RPC error:", e))
+      .finally(() => { leaderboardRefreshInFlight = false; });
+  }, 5000);
+}
+
 function convertSpeedForUnit(speedKmh: number, unit?: string): { value: number; label: string } {
   if (unit === 'mph') {
     return { value: Math.round(speedKmh * 0.621371), label: 'mph' };
@@ -769,6 +793,7 @@ export const tripsRouter = createTRPCRouter({
         createActivityFeedEntry(input).catch((err: unknown) => console.error("[TRIPS] Activity feed entry error:", err));
 
         cacheInvalidatePrefix("leaderboard:");
+        scheduleLeaderboardRefresh();
 
         return { success: true };
       } catch (error) {
