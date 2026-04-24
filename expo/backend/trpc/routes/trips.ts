@@ -384,10 +384,6 @@ function sanitizeAccelTime(value: number | undefined, minValid: number, label: s
 }
 
 function tripToSupabaseRow(trip: SyncedTrip): SupabaseTripRow {
-  const sanitizedTopSpeed = trip.topSpeed > MAX_VALID_TOP_SPEED ? 0 : trip.topSpeed;
-  const sanitizedAcceleration = (trip.acceleration ?? 0) > MAX_VALID_ACCELERATION ? 0 : trip.acceleration;
-  const sanitizedGForce = (trip.maxGForce ?? 0) > MAX_VALID_G_FORCE ? 0 : trip.maxGForce;
-
   const row: SupabaseTripRow = {
     id: trip.id,
     user_id: trip.userId,
@@ -398,11 +394,11 @@ function tripToSupabaseRow(trip: SyncedTrip): SupabaseTripRow {
     distance: trip.distance,
     duration: trip.duration,
     avg_speed: trip.avgSpeed,
-    top_speed: sanitizedTopSpeed,
+    top_speed: trip.topSpeed,
     corners: trip.corners,
     car_model: trip.carModel,
-    acceleration: sanitizedAcceleration,
-    max_g_force: sanitizedGForce,
+    acceleration: trip.acceleration,
+    max_g_force: trip.maxGForce,
     country: trip.location?.country,
     city: trip.location?.city,
     time_0_to_100: sanitizeAccelTime(trip.time0to100, MIN_VALID_0_TO_100, '0-100'),
@@ -817,7 +813,7 @@ export const tripsRouter = createTRPCRouter({
             break;
           case "acceleration":
             orderBy = "acceleration";
-            filter = "acceleration=gt.0";
+            filter = `acceleration=gt.0&acceleration=lte.${MAX_VALID_ACCELERATION}`;
             break;
           case "gForce":
             orderBy = "max_g_force";
