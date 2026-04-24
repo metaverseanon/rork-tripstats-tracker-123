@@ -388,13 +388,9 @@ export const socialRouter = createTRPCRouter({
       try {
         const followingUrl = `${getSupabaseRestUrl("follows")}?follower_id=eq.${encodeURIComponent(input.userId)}&select=following_id`;
         const followResp = await fetch(followingUrl, { method: "GET", headers: getSupabaseHeaders() });
-        if (!followResp.ok) return [];
-        const followRows: { following_id: string }[] = await followResp.json();
+        const followRows: { following_id: string }[] = followResp.ok ? await followResp.json() : [];
         const followingIds = followRows.map(r => r.following_id);
-
         followingIds.push(input.userId);
-
-        if (followingIds.length === 0) return [];
 
         const feedFilterIds = followingIds.map(id => `"${id}"`).join(",");
         const feedUrl = `${getSupabaseRestUrl("activity_feed")}?user_id=in.(${feedFilterIds})&order=created_at.desc&limit=${input.limit}&offset=${input.offset}`;
@@ -406,8 +402,17 @@ export const socialRouter = createTRPCRouter({
           return [];
         }
 
-        const feedRows: ActivityFeedRow[] = await feedResp.json();
-        console.log("[SOCIAL] Feed rows fetched:", feedRows.length);
+        let feedRows: ActivityFeedRow[] = await feedResp.json();
+        console.log("[SOCIAL] Feed rows fetched (following):", feedRows.length);
+
+        if (feedRows.length === 0) {
+          const globalUrl = `${getSupabaseRestUrl("activity_feed")}?order=created_at.desc&limit=${input.limit}&offset=${input.offset}`;
+          const globalResp = await fetch(globalUrl, { method: "GET", headers: getSupabaseHeaders() });
+          if (globalResp.ok) {
+            feedRows = await globalResp.json();
+            console.log("[SOCIAL] Feed fallback global rows fetched:", feedRows.length);
+          }
+        }
 
         const feedUserIds = [...new Set(feedRows.map(r => r.user_id))];
         const userMap = new Map<string, { displayName: string; carBrand?: string; carModel?: string; profilePicture?: string }>();

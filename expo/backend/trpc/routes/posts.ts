@@ -238,12 +238,9 @@ export const postsRouter = createTRPCRouter({
       try {
         const followingUrl = `${getSupabaseRestUrl("follows")}?follower_id=eq.${encodeURIComponent(input.userId)}&select=following_id`;
         const followResp = await fetch(followingUrl, { method: "GET", headers: getSupabaseHeaders() });
-        if (!followResp.ok) return [];
-        const followRows: { following_id: string }[] = await followResp.json();
+        const followRows: { following_id: string }[] = followResp.ok ? await followResp.json() : [];
         const followingIds = followRows.map((r) => r.following_id);
         followingIds.push(input.userId);
-
-        if (followingIds.length === 0) return [];
 
         const postsUserFilter = followingIds.map((id) => `"${id}"`).join(",");
         const postsUrl = `${getSupabaseRestUrl("posts")}?user_id=in.(${postsUserFilter})&order=created_at.desc&limit=${input.limit}&offset=${input.offset}`;
@@ -251,8 +248,17 @@ export const postsRouter = createTRPCRouter({
         const postsResp = await fetch(postsUrl, { method: "GET", headers: getSupabaseHeaders() });
         if (!postsResp.ok) return [];
 
-        const postRows: PostRow[] = await postsResp.json();
-        console.log("[POSTS] Feed posts fetched:", postRows.length);
+        let postRows: PostRow[] = await postsResp.json();
+        console.log("[POSTS] Feed posts fetched (following):", postRows.length);
+
+        if (postRows.length === 0) {
+          const globalUrl = `${getSupabaseRestUrl("posts")}?order=created_at.desc&limit=${input.limit}&offset=${input.offset}`;
+          const globalResp = await fetch(globalUrl, { method: "GET", headers: getSupabaseHeaders() });
+          if (globalResp.ok) {
+            postRows = await globalResp.json();
+            console.log("[POSTS] Feed posts fallback global fetched:", postRows.length);
+          }
+        }
 
         const postUserIds = [...new Set(postRows.map(r => r.user_id))];
         const userMap = new Map<string, { displayName: string; carBrand?: string; carModel?: string; profilePicture?: string }>();
