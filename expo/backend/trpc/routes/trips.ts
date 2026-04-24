@@ -7,30 +7,6 @@ const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 
 const LEADERBOARD_EXCLUDED_USER_IDS: string[] = ["1776777191940", "1775465396933", "1776178603997"];
 
-// Debounced refresh of the leaderboard_top_ten materialized view.
-// Called after trip sync so the view stays fresh without blocking writes.
-let leaderboardRefreshTimer: ReturnType<typeof setTimeout> | null = null;
-let leaderboardRefreshInFlight = false;
-function scheduleLeaderboardRefresh(): void {
-  if (leaderboardRefreshTimer) return;
-  leaderboardRefreshTimer = setTimeout(() => {
-    leaderboardRefreshTimer = null;
-    if (leaderboardRefreshInFlight) return;
-    leaderboardRefreshInFlight = true;
-    const url = getSupabaseRestUrl("rpc/refresh_leaderboard_top_ten");
-    fetch(url, { method: "POST", headers: { ...getSupabaseHeaders(), "Content-Type": "application/json" }, body: "{}" })
-      .then(async (r) => {
-        if (!r.ok) {
-          console.error("[LEADERBOARD] refresh RPC failed:", r.status, await r.text());
-        } else {
-          console.log("[LEADERBOARD] materialized view refreshed");
-        }
-      })
-      .catch((e) => console.error("[LEADERBOARD] refresh RPC error:", e))
-      .finally(() => { leaderboardRefreshInFlight = false; });
-  }, 5000);
-}
-
 function convertSpeedForUnit(speedKmh: number, unit?: string): { value: number; label: string } {
   if (unit === 'mph') {
     return { value: Math.round(speedKmh * 0.621371), label: 'mph' };
@@ -528,66 +504,6 @@ function supabaseRowToTrip(row: SupabaseTripRow): SyncedTrip {
   };
 }
 
-interface LeaderboardTopTenRow {
-  user_id: string;
-  user_name: string | null;
-  user_profile_picture: string | null;
-  car_brand: string | null;
-  car_model: string | null;
-  country: string | null;
-  city: string | null;
-  total_distance: number;
-  trip_count: number;
-  last_trip_at: number | null;
-}
-
-async function getTotalDistanceLeaderboardFromView(limit: number): Promise<SyncedTrip[]> {
-  const selectCols = "user_id,user_name,user_profile_picture,car_brand,car_model,country,city,total_distance,last_trip_at";
-  const url = `${getSupabaseRestUrl("leaderboard_top_ten")}?select=${selectCols}&order=total_distance.desc&limit=${limit}`;
-
-  console.log("[LEADERBOARD] totalDistance (view) fetch from:", url);
-
-  const response = await fetch(url, { method: "GET", headers: getSupabaseHeaders() });
-
-  if (!response.ok) {
-    const error = await response.text();
-    console.error("[LEADERBOARD] totalDistance view fetch failed:", response.status, error);
-    throw new Error(`view fetch failed: ${response.status}`);
-  }
-
-  const rows = (await response.json()) as LeaderboardTopTenRow[];
-  console.log("[LEADERBOARD] totalDistance (view) returned:", rows.length, "rows");
-
-  const excluded = new Set(LEADERBOARD_EXCLUDED_USER_IDS);
-  const now = Date.now();
-
-  return rows
-    .filter((r) => !excluded.has(r.user_id))
-    .map((r): SyncedTrip => {
-      const fullCarModel = r.car_brand && r.car_model
-        ? `${r.car_brand} ${r.car_model}`
-        : r.car_model ?? undefined;
-      const startTime = r.last_trip_at ?? now;
-      return {
-        id: `total_${r.user_id}`,
-        userId: r.user_id,
-        userName: r.user_name ?? undefined,
-        userProfilePicture: r.user_profile_picture ?? undefined,
-        startTime,
-        endTime: startTime,
-        distance: r.total_distance,
-        duration: 0,
-        avgSpeed: 0,
-        topSpeed: 0,
-        corners: 0,
-        carModel: fullCarModel,
-        location: r.country || r.city
-          ? { country: r.country ?? undefined, city: r.city ?? undefined }
-          : undefined,
-      };
-    });
-}
-
 async function getTotalDistanceLeaderboard(input: {
   country?: string;
   city?: string;
@@ -597,23 +513,6 @@ async function getTotalDistanceLeaderboard(input: {
   timePeriodStart?: number;
   limit: number;
 }): Promise<SyncedTrip[]> {
-  const hasFilters = !!(
-    input.country ||
-    input.city ||
-    input.carBrand ||
-    input.carModel ||
-    (input.timePeriodStart && input.timePeriodStart > 0) ||
-    (input.timePeriod && input.timePeriod !== "all")
-  );
-
-  if (!hasFilters) {
-    try {
-      return await getTotalDistanceLeaderboardFromView(input.limit);
-    } catch (err) {
-      console.error("[LEADERBOARD] view path failed, falling back to aggregation:", err);
-    }
-  }
-
   try {
     let url = getSupabaseRestUrl("trips");
     const params: string[] = ["select=id,user_id,user_name,user_profile_picture,start_time,end_time,distance,duration,avg_speed,top_speed,corners,car_model,acceleration,max_g_force,country,city,time_0_to_100,time_0_to_200,time_100_to_200,time_0_to_300", "distance=gt.0"];
@@ -793,7 +692,6 @@ export const tripsRouter = createTRPCRouter({
         createActivityFeedEntry(input).catch((err: unknown) => console.error("[TRIPS] Activity feed entry error:", err));
 
         cacheInvalidatePrefix("leaderboard:");
-        scheduleLeaderboardRefresh();
 
         return { success: true };
       } catch (error) {

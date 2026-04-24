@@ -2,8 +2,8 @@ import { Platform } from 'react-native';
 
 const BUCKET_NAME = 'user-images';
 
-const SUPABASE_URL = 'https://emxpaaqzpqlagbzawgvf.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVteHBhYXF6cHFsYWdiemF3Z3ZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNTk3OTEsImV4cCI6MjA5MjYzNTc5MX0.i9-s936bDmigl_i0hDxBBFjF81ceI1ctOjls9bJaQJw';
+const SUPABASE_URL = 'https://zlyqrrmiegtxlpifwxxv.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpseXFycm1pZWd0eGxwaWZ3eHh2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyMDkzODcsImV4cCI6MjA4NTc4NTM4N30.mbtqib3AQzhRnUT2Db9X9d5Btw7-hpNhRW7cF9Ev_QE';
 
 function getCredentials() {
   const url = SUPABASE_URL;
