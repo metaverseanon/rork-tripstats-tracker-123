@@ -6,14 +6,18 @@ import type { AppRouter } from "@/backend/trpc/app-router";
 
 export const trpc = createTRPCReact<AppRouter>();
 
-const getBaseUrl = () => {
+const getBaseUrl = (): string | null => {
   const url = process.env.EXPO_PUBLIC_RORK_API_BASE_URL;
   if (!url) {
-    console.error('[TRPC] EXPO_PUBLIC_RORK_API_BASE_URL is not set');
-    return 'https://api.placeholder.invalid';
+    console.error('[TRPC] EXPO_PUBLIC_RORK_API_BASE_URL is not set. Backend requests will fail until this env var is configured.');
+    return null;
   }
-  return url;
+  return url.replace(/\/$/, '');
 };
+
+const RAW_BASE_URL = getBaseUrl();
+const TRPC_URL = RAW_BASE_URL ? `${RAW_BASE_URL}/api/trpc` : 'https://api.placeholder.invalid/api/trpc';
+console.log('[TRPC] Endpoint:', TRPC_URL);
 
 const REQUEST_TIMEOUT_MS = 30000;
 const MAX_RETRIES_ON_429 = 4;
@@ -25,7 +29,7 @@ function sleep(ms: number): Promise<void> {
 export const trpcClient = trpc.createClient({
   links: [
     httpLink({
-      url: `${getBaseUrl()}/api/trpc`,
+      url: TRPC_URL,
       transformer: superjson,
       fetch: async (url, options) => {
         let attempt = 0;
@@ -36,6 +40,9 @@ export const trpcClient = trpc.createClient({
           const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
           try {
+            if (!RAW_BASE_URL) {
+              throw new Error('[TRPC] Missing EXPO_PUBLIC_RORK_API_BASE_URL — cannot reach backend');
+            }
             const response = await fetch(url, {
               ...options,
               signal: controller.signal,
