@@ -4,8 +4,8 @@ export type DbConfig = {
   serviceRoleKey?: string;
 };
 
-const HARDCODED_URL = 'https://zlyqrrmiegtxlpifwxxv.supabase.co';
-const HARDCODED_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpseXFycm1pZWd0eGxwaWZ3eHh2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyMDkzODcsImV4cCI6MjA4NTc4NTM4N30.mbtqib3AQzhRnUT2Db9X9d5Btw7-hpNhRW7cF9Ev_QE';
+const HARDCODED_URL = 'https://emxpaaqzpqlagbzawgvf.supabase.co';
+const HARDCODED_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVteHBhYXF6cHFsYWdiemF3Z3ZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcwNTk3OTEsImV4cCI6MjA5MjYzNTc5MX0.i9-s936bDmigl_i0hDxBBFjF81ceI1ctOjls9bJaQJw';
 
 export function getDbConfig(): DbConfig {
   const url = process.env.SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL || HARDCODED_URL;
