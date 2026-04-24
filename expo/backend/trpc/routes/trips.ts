@@ -293,7 +293,7 @@ interface SupabaseTripRow {
 const MIN_VALID_0_TO_100 = 1.5;
 const MIN_VALID_0_TO_200 = 4.0;
 const MIN_VALID_0_TO_300 = 8.0;
-const MAX_VALID_TOP_SPEED = 500;
+const MAX_VALID_TOP_SPEED = 400;
 const MAX_VALID_ACCELERATION = 30;
 const MAX_VALID_G_FORCE = 4.0;
 
@@ -809,7 +809,7 @@ export const tripsRouter = createTRPCRouter({
         switch (input.category) {
           case "topSpeed":
             orderBy = "top_speed";
-            filter = "top_speed=gt.0";
+            filter = `top_speed=gt.0&top_speed=lte.${MAX_VALID_TOP_SPEED}`;
             break;
           case "distance":
             orderBy = "distance";
