@@ -13,23 +13,14 @@ const app = new Hono();
 
 app.use("*", cors());
 
-app.use(
-  "/trpc/*",
-  trpcServer({
-    endpoint: "/trpc",
-    router: appRouter,
-    createContext,
-  })
-);
+const trpcHandler = trpcServer({
+  endpoint: "/api/trpc",
+  router: appRouter,
+  createContext,
+});
 
-app.use(
-  "/api/trpc/*",
-  trpcServer({
-    endpoint: "/api/trpc",
-    router: appRouter,
-    createContext,
-  })
-);
+app.use("/api/trpc/*", trpcHandler);
+app.use("/trpc/*", trpcHandler);
 
 app.get("/", (c) => c.json({ status: "ok", message: "API is running", version: BACKEND_VERSION }));
 
