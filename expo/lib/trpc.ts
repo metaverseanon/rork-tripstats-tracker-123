@@ -16,6 +16,11 @@ const getBaseUrl = () => {
 };
 
 const REQUEST_TIMEOUT_MS = 30000;
+const MAX_RETRIES_ON_429 = 4;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 export const trpcClient = trpc.createClient({
   links: [
@@ -23,25 +28,50 @@ export const trpcClient = trpc.createClient({
       url: `${getBaseUrl()}/api/trpc`,
       transformer: superjson,
       fetch: async (url, options) => {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+        let attempt = 0;
+        let lastResponse: Response | null = null;
 
-        try {
-          const response = await fetch(url, {
-            ...options,
-            signal: controller.signal,
-          });
-          return response;
-        } catch (error) {
-          if (error instanceof Error && error.name === 'AbortError') {
-            console.warn('[TRPC] Request timed out:', String(url).substring(0, 100));
-          } else {
-            console.warn('[TRPC] Fetch error:', error instanceof Error ? error.message : 'Unknown error');
+        while (attempt <= MAX_RETRIES_ON_429) {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+          try {
+            const response = await fetch(url, {
+              ...options,
+              signal: controller.signal,
+            });
+
+            if (response.status === 429 || response.status === 503) {
+              lastResponse = response;
+              const retryAfterHeader = response.headers.get('retry-after');
+              const retryAfterSec = retryAfterHeader ? parseInt(retryAfterHeader, 10) : NaN;
+              const backoffMs = Number.isFinite(retryAfterSec)
+                ? Math.min(retryAfterSec * 1000, 8000)
+                : Math.min(800 * Math.pow(2, attempt) + Math.random() * 400, 8000);
+              console.warn(`[TRPC] ${response.status} on attempt ${attempt + 1}/${MAX_RETRIES_ON_429 + 1}, retrying in ${Math.round(backoffMs)}ms`);
+              attempt += 1;
+              if (attempt > MAX_RETRIES_ON_429) {
+                return response;
+              }
+              await sleep(backoffMs);
+              continue;
+            }
+
+            return response;
+          } catch (error) {
+            if (error instanceof Error && error.name === 'AbortError') {
+              console.warn('[TRPC] Request timed out:', String(url).substring(0, 100));
+            } else {
+              console.warn('[TRPC] Fetch error:', error instanceof Error ? error.message : 'Unknown error');
+            }
+            throw error;
+          } finally {
+            clearTimeout(timeoutId);
           }
-          throw error;
-        } finally {
-          clearTimeout(timeoutId);
         }
+
+        if (lastResponse) return lastResponse;
+        throw new Error('[TRPC] Unexpected retry loop exit');
       },
     }),
   ],
