@@ -6,7 +6,7 @@ import { appRouter } from "./trpc/app-router";
 import { createContext } from "./trpc/create-context";
 import { getDbConfig } from "./trpc/db";
 
-const BACKEND_VERSION = "1.1.1";
+const BACKEND_VERSION = "1.2.0";
 console.log(`[BACKEND] Starting RedLine API v${BACKEND_VERSION}`);
 
 const app = new Hono();
